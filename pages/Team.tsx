@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Phone, DollarSign, Save, X, Trash2, TrendingUp, AlertCircle, BarChart2, Edit2, Settings, Briefcase } from 'lucide-react';
+import { Plus, Phone, DollarSign, Save, X, Trash2, Edit2, AlertCircle, Target, Lock, Check } from 'lucide-react';
 import { Atendente, CommissionOverride } from '../types';
 
 export const Team: React.FC = () => {
-  const { atendentes, sales, kits, addAtendente, updateAtendente, deleteAtendente, toggleAtendenteStatus } = useData();
+  const { atendentes, sales, kits, criativos, addAtendente, updateAtendente, deleteAtendente, toggleAtendenteStatus } = useData();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -13,7 +13,13 @@ export const Team: React.FC = () => {
   const [newCode, setNewCode] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newSalary, setNewSalary] = useState<string>('');
+  
+  // Goals State
+  const [goalQty, setGoalQty] = useState<string>('');
+  const [goalValue, setGoalValue] = useState<string>('');
+
   const [customCommissions, setCustomCommissions] = useState<CommissionOverride[]>([]);
+  const [allowedCreatives, setAllowedCreatives] = useState<string[]>([]);
 
   // Calculate Stats per Attendant
   const getAttendantStats = (attendantId: string) => {
@@ -38,7 +44,10 @@ export const Team: React.FC = () => {
       setNewCode('');
       setNewPhone('');
       setNewSalary('');
+      setGoalQty('');
+      setGoalValue('');
       setCustomCommissions([]);
+      setAllowedCreatives([]);
       setIsModalOpen(true);
   };
 
@@ -50,7 +59,10 @@ export const Team: React.FC = () => {
       setNewCode(att.codigo);
       setNewPhone(att.telefone);
       setNewSalary(att.salarioMensal.toString());
+      setGoalQty(att.metaMensal?.quantidade.toString() || '');
+      setGoalValue(att.metaMensal?.valor.toString() || '');
       setCustomCommissions(att.comissoesPersonalizadas || []);
+      setAllowedCreatives(att.criativosAutorizados || []);
       setIsModalOpen(true);
   };
 
@@ -73,6 +85,16 @@ export const Team: React.FC = () => {
       });
   };
 
+  const toggleAllowedCreative = (id: string) => {
+      setAllowedCreatives(prev => {
+          if (prev.includes(id)) {
+              return prev.filter(cId => cId !== id);
+          } else {
+              return [...prev, id];
+          }
+      });
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
       
@@ -82,7 +104,12 @@ export const Team: React.FC = () => {
           telefone: newPhone,
           salarioMensal: parseFloat(newSalary) || 0,
           ativo: true,
-          comissoesPersonalizadas: customCommissions
+          comissoesPersonalizadas: customCommissions,
+          metaMensal: {
+              quantidade: parseInt(goalQty) || 0,
+              valor: parseFloat(goalValue) || 0
+          },
+          criativosAutorizados: allowedCreatives
       };
 
       if (editingId) {
@@ -103,7 +130,7 @@ export const Team: React.FC = () => {
        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h1 className="text-2xl font-bold text-slate-900">Gestão de Equipe</h1>
-                <p className="text-slate-500">Cadastre atendentes, defina UTMs e comissões personalizadas.</p>
+                <p className="text-slate-500">Cadastre atendentes, defina metas e comissões personalizadas.</p>
             </div>
        </div>
 
@@ -180,8 +207,8 @@ export const Team: React.FC = () => {
                                <p className="text-xs font-bold text-green-700">R$ {stats.totalCommission.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
                            </div>
                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-2 text-center">
-                               <p className="text-[9px] text-blue-600 uppercase font-bold">Salário Base</p>
-                               <p className="text-xs font-bold text-blue-700">R$ {att.salarioMensal.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}</p>
+                               <p className="text-[9px] text-blue-600 uppercase font-bold">Meta (Qtd)</p>
+                               <p className="text-xs font-bold text-blue-700">{att.metaMensal?.quantidade || '-'}</p>
                            </div>
                        </div>
 
@@ -282,6 +309,72 @@ export const Team: React.FC = () => {
                                            placeholder="1500.00"
                                        />
                                    </div>
+                               </div>
+                           </div>
+
+                            {/* Metas Mensais */}
+                           <div className="border-t border-slate-200 pt-5">
+                               <div className="flex items-center justify-between mb-3">
+                                   <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                       <div className="p-1.5 bg-indigo-100 rounded text-indigo-700"><Target size={16}/></div>
+                                       Metas Mensais
+                                   </h3>
+                               </div>
+                               <div className="grid grid-cols-2 gap-4">
+                                   <div>
+                                       <label className="block text-xs font-bold text-slate-500 mb-1">Meta de Vendas (Qtd)</label>
+                                       <input 
+                                           type="number"
+                                           value={goalQty} onChange={e => setGoalQty(e.target.value)}
+                                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none"
+                                           placeholder="Ex: 50"
+                                       />
+                                   </div>
+                                   <div>
+                                       <label className="block text-xs font-bold text-slate-500 mb-1">Meta Faturamento (R$)</label>
+                                       <input 
+                                           type="number"
+                                           value={goalValue} onChange={e => setGoalValue(e.target.value)}
+                                           className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-100 outline-none"
+                                           placeholder="Ex: 15000.00"
+                                       />
+                                   </div>
+                               </div>
+                           </div>
+
+                           {/* SECURITY / ATTRIBUTION SECTION */}
+                           <div className="border-t border-slate-200 pt-5">
+                                <div className="flex items-center justify-between mb-3">
+                                   <h3 className="font-bold text-slate-800 flex items-center gap-2">
+                                       <div className="p-1.5 bg-red-100 rounded text-red-700"><Lock size={16}/></div>
+                                       Segurança & Atribuição
+                                   </h3>
+                               </div>
+                               <p className="text-xs text-slate-500 mb-4 bg-slate-50 p-2 rounded border border-slate-100">
+                                   Selecione os criativos que este atendente está <strong>autorizado</strong> a vender. Vendas de criativos não marcados entrarão como "Sem Identificação".
+                               </p>
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-2 max-h-40 overflow-y-auto custom-scrollbar border border-slate-100 rounded-lg p-2">
+                                   {criativos.map(c => {
+                                       const isAllowed = allowedCreatives.includes(c.id);
+                                       return (
+                                           <label key={c.id} className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-colors border ${isAllowed ? 'bg-green-50 border-green-200' : 'hover:bg-slate-50 border-transparent'}`}>
+                                               <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${isAllowed ? 'bg-green-500 border-green-500 text-white' : 'border-slate-300 bg-white'}`}>
+                                                    {isAllowed && <Check size={14} strokeWidth={3} />}
+                                               </div>
+                                               <input 
+                                                    type="checkbox" 
+                                                    className="hidden"
+                                                    checked={isAllowed}
+                                                    onChange={() => toggleAllowedCreative(c.id)}
+                                               />
+                                               <div className="flex-1 min-w-0">
+                                                    <p className={`text-xs font-bold truncate ${isAllowed ? 'text-green-800' : 'text-slate-600'}`}>{c.nome}</p>
+                                                    <p className="text-[10px] text-slate-400 truncate">{c.campanha}</p>
+                                               </div>
+                                           </label>
+                                       )
+                                   })}
+                                   {criativos.length === 0 && <p className="text-xs text-slate-400 italic p-2">Nenhum criativo cadastrado.</p>}
                                </div>
                            </div>
 

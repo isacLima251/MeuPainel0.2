@@ -111,10 +111,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let relevantSales = sales;
     let relevantExpenses = creativeExpenses;
     let relevantDespesas = despesas;
+    let currentAttendantSalary = 0;
 
     // Filter by Specific Attendant
     if (atendenteId && atendenteId !== 'all') {
         relevantSales = sales.filter(s => s.atendenteId === atendenteId);
+        const att = atendentes.find(a => a.id === atendenteId);
+        if (att) currentAttendantSalary = att.salarioMensal;
     }
 
     // Filter by Date Range
@@ -201,6 +204,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const taxaConversao = totalFinished > 0 ? countPago / totalFinished : 0;
     const taxaFrustracao = totalFinished > 0 ? countFrustrado / totalFinished : 0;
 
+    // Calculates potential commission from pending sales
     const projecaoMaxima = relevantSales.reduce((acc, s) => {
         if (s.status === 'PAGO') return acc + s.comissaoGerada; 
         
@@ -225,6 +229,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 0);
 
     const projecaoRealista = projecaoMaxima * taxaConversao;
+    
+    // Projeção de Ganhos Total = Salário + Comissões Pagas + Comissões Potenciais (projecaoMaxima já inclui pagas + potenciais)
+    const projecaoGanhosTotal = currentAttendantSalary + projecaoMaxima;
 
     return {
       totalFaturamento,
@@ -244,6 +251,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       valorFrustrado,
       projecaoMaxima,
       projecaoRealista,
+      projecaoGanhosTotal,
       taxaConversao,
       taxaFrustracao
     };
@@ -289,7 +297,24 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const criativo = criativos.find(c => c.nome === utm_content?.toUpperCase());
     const kit = kits.find(k => k.nome === product) || kits[0]; 
 
-    const isUnidentified = !atendente || !criativo || !utm_campaign;
+    // Initial ID check
+    let isUnidentified = !atendente || !criativo || !utm_campaign;
+
+    // SECURITY CHECK: Attendant Authorization
+    // If attendant exists but is not authorized for this creative, flag as unidentified
+    if (atendente && criativo) {
+        // If authorized list is defined and not empty, we check. If undefined/empty, we might assume permissive or restricted. 
+        // Based on requirement "Select which... authorized", we assume strict checking if list exists.
+        // If list is missing (legacy data), we might want to default to true or false. 
+        // For safety in this update, we check if property exists.
+        if (atendente.criativosAutorizados && atendente.criativosAutorizados.length > 0) {
+            const isAuthorized = atendente.criativosAutorizados.includes(criativo.id);
+            if (!isAuthorized) {
+                isUnidentified = true;
+                addLog('Webhook/Security', 'Alerta', `Atendente ${atendente.codigo} não autorizado para criativo ${criativo.nome}. Venda marcada sem ID.`);
+            }
+        }
+    }
 
     const existingSale = sales.find(s => s.pedidoIdBraip === order_id);
 
@@ -334,7 +359,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
 
         addSale(newSale);
-        return { success: true, message: isUnidentified ? `Venda ${order_id} criada SEM IDENTIFICAÇÃO (UTMs faltantes)` : `Venda ${order_id} criada com sucesso` };
+        return { success: true, message: isUnidentified ? `Venda ${order_id} criada SEM IDENTIFICAÇÃO (UTMs faltantes ou permissão negada)` : `Venda ${order_id} criada com sucesso` };
     }
   };
 

@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   TrendingUp, TrendingDown, Users, Activity, Target, ArrowUpRight, ArrowDownRight, 
-  Wallet, CheckCircle, XCircle, AlertOctagon, Calendar, Clock, User, Trophy, Percent 
+  Wallet, CheckCircle, XCircle, AlertOctagon, Calendar, Clock, User, Trophy, Percent, Star, DollarSign
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../App';
@@ -60,6 +60,53 @@ const StatusCard = ({ title, count, value, icon: Icon, colorClass, borderClass, 
     </div>
 );
 
+// New Horizontal Goal Progress Bar
+const GoalProgressBar = ({ current, target }: { current: number, target: number }) => {
+    const percentage = target > 0 ? Math.min(100, Math.round((current / target) * 100)) : 0;
+    const remaining = target - current;
+    
+    return (
+        <div className="w-full bg-white p-4 rounded-xl border border-slate-200 shadow-sm mb-6 relative overflow-hidden">
+             {/* Background Decoration */}
+             <div className="absolute top-0 right-0 w-64 h-full bg-gradient-to-l from-blue-50 to-transparent pointer-events-none"></div>
+
+             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 relative z-10">
+                {/* Text Info */}
+                <div className="flex items-center gap-4">
+                    <div className="p-2.5 bg-blue-100 text-blue-700 rounded-lg shrink-0">
+                        <Target size={24} />
+                    </div>
+                    <div>
+                        <h3 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Meta Mensal de Vendas</h3>
+                        <div className="flex items-baseline gap-1">
+                             <span className="text-2xl font-extrabold text-blue-700">{current}</span>
+                             <span className="text-sm text-slate-500 font-medium">/ {target} vendas</span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Progress Bar Area */}
+                <div className="flex-1 max-w-2xl">
+                    <div className="flex justify-between text-xs font-bold text-slate-500 mb-1.5 uppercase">
+                        <span>Progresso: {percentage}%</span>
+                        <span className={remaining <= 0 ? "text-green-600" : "text-blue-600"}>
+                            {remaining <= 0 ? "META BATIDA! 🚀" : `Faltam ${remaining} para o objetivo`}
+                        </span>
+                    </div>
+                    <div className="w-full bg-slate-100 rounded-full h-4 overflow-hidden border border-slate-200">
+                        <div 
+                            className={`h-full rounded-full transition-all duration-1000 ease-out shadow-sm relative ${percentage >= 100 ? 'bg-gradient-to-r from-green-500 to-emerald-500' : 'bg-gradient-to-r from-blue-500 to-indigo-600'}`}
+                            style={{ width: `${percentage}%` }}
+                        >
+                            <div className="absolute inset-0 bg-white/20 animate-[pulse_2s_infinite]"></div>
+                        </div>
+                    </div>
+                </div>
+             </div>
+        </div>
+    );
+};
+
 type ChartMode = 'weekday' | 'hour';
 
 export const Dashboard: React.FC = () => {
@@ -80,7 +127,11 @@ export const Dashboard: React.FC = () => {
 
   // Attendant Selection State
   const myAttendantId = atendentes.find(a => a.userId === user?.id)?.id;
-  const [selectedAttendantId, setSelectedAttendantId] = useState<string>(isAdmin ? 'all' : (myAttendantId || 'all'));
+  const selectedAttendantId = isAdmin ? (useState<string>('all')[0]) : (myAttendantId || 'all');
+  const [adminSelectedAttendantId, setAdminSelectedAttendantId] = useState<string>('all');
+  
+  // Use either the admin selection or the forced user ID
+  const effectiveAttendantId = isAdmin ? adminSelectedAttendantId : selectedAttendantId;
 
   useEffect(() => {
     setPortalTarget(document.getElementById('header-actions'));
@@ -120,10 +171,14 @@ export const Dashboard: React.FC = () => {
   }, [filterType]);
 
   const metrics = getMetrics(
-      selectedAttendantId,
+      effectiveAttendantId,
       startDate ? new Date(startDate) : undefined,
       endDate ? new Date(endDate) : undefined
   );
+
+  // Get Goal Data for current user (if attendant)
+  const myAttendantData = atendentes.find(a => a.id === effectiveAttendantId);
+  const salesGoal = myAttendantData?.metaMensal?.quantidade || 0;
 
   // --- Chart Data Logic ---
   const getChartData = () => {
@@ -136,8 +191,8 @@ export const Dashboard: React.FC = () => {
           return sDate >= start && sDate <= end && (s.status === 'PAGO' || s.status === 'FRUSTRADO');
       });
 
-      if (selectedAttendantId !== 'all') {
-          relevantSales = relevantSales.filter(s => s.atendenteId === selectedAttendantId);
+      if (effectiveAttendantId !== 'all') {
+          relevantSales = relevantSales.filter(s => s.atendenteId === effectiveAttendantId);
       }
 
       if (chartMode === 'weekday') {
@@ -195,7 +250,7 @@ export const Dashboard: React.FC = () => {
   }).sort((a, b) => b.totalValue - a.totalValue);
 
   // States Chart Data
-  const salesByState = sales.filter(s => selectedAttendantId === 'all' || s.atendenteId === selectedAttendantId).reduce((acc: any, curr) => {
+  const salesByState = sales.filter(s => effectiveAttendantId === 'all' || s.atendenteId === effectiveAttendantId).reduce((acc: any, curr) => {
       if (curr.status === 'PAGO') {
         acc[curr.clienteEstado] = (acc[curr.clienteEstado] || 0) + 1;
       }
@@ -216,15 +271,20 @@ export const Dashboard: React.FC = () => {
           endDate={endDate}
           onEndDateChange={setEndDate}
           showCustomDate={showCustomDate}
-          selectedAttendantId={selectedAttendantId}
-          onAttendantChange={setSelectedAttendantId}
+          selectedAttendantId={effectiveAttendantId}
+          onAttendantChange={setAdminSelectedAttendantId}
           atendentes={atendentes}
           isAdmin={isAdmin}
         />, 
         portalTarget
       )}
 
-      {/* STATUS CARDS */}
+      {/* NEW: Full Width Goal Progress Bar (Attendants Only) */}
+      {!isAdmin && salesGoal > 0 && (
+          <GoalProgressBar current={metrics.countPago} target={salesGoal} />
+      )}
+
+      {/* STATUS CARDS - Visible to ALL */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
            <StatusCard 
                 title="Agendado" 
@@ -265,8 +325,8 @@ export const Dashboard: React.FC = () => {
            />
       </div>
 
-      {/* FINANCIAL KPIs */}
-      {isAdmin && selectedAttendantId === 'all' ? (
+      {/* KPIs & Goals */}
+      {isAdmin && effectiveAttendantId === 'all' ? (
           // GLOBAL ADMIN VIEW
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
             <KpiCard 
@@ -302,6 +362,15 @@ export const Dashboard: React.FC = () => {
       ) : (
           // ATTENDANT OR SINGLE VIEW (Performance Focus)
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+             {/* NEW: Projection of Total Earnings (Salary + Commission) */}
+             <KpiCard 
+                title="Projeção de Ganhos" 
+                value={`R$ ${metrics.projecaoGanhosTotal.toLocaleString('pt-BR')}`}
+                subtext="Salário Base + Comissões Totais (Pagas e Agendadas)"
+                icon={DollarSign}
+                color="bg-emerald-600"
+             />
+
              <KpiCard 
                 title="Taxa de Conversão" 
                 value={`${(metrics.taxaConversao * 100).toFixed(1)}%`}
@@ -309,32 +378,26 @@ export const Dashboard: React.FC = () => {
                 icon={Activity}
                 color="bg-indigo-500"
              />
+             
+             {/* Comissões Geradas (Paid Only) */}
              <KpiCard 
-                title="Comissões Geradas"
+                title="Comissões Já Pagas"
                 value={`R$ ${metrics.totalComissoes.toLocaleString('pt-BR')}`}
-                subtext="Receita pessoal"
+                subtext="Valor já garantido em conta"
                 icon={Wallet}
                 color="bg-blue-500"
-             />
-             <KpiCard 
-                title="Lucro da Operação"
-                value={`R$ ${metrics.totalLiquido.toLocaleString('pt-BR')}`}
-                subtext="Receita - Comissões (Margem)"
-                icon={Target}
-                color="bg-green-600"
              />
           </div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Chart - Performance Bar Chart */}
+        {/* Main Chart */}
         <div className="lg:col-span-2 bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
           <div className="flex justify-between items-center mb-6">
             <div>
                  <h3 className="text-lg font-bold text-slate-800">Performance de Vendas Pagas</h3>
                  <p className="text-xs text-slate-500">Volume de vendas por período</p>
             </div>
-            {/* Toggle Chart Mode */}
             <div className="bg-slate-100 p-1 rounded-lg flex text-xs font-bold">
                 <button 
                     onClick={() => setChartMode('weekday')}
@@ -428,11 +491,10 @@ export const Dashboard: React.FC = () => {
         </div>
       </div>
 
-      {/* Admin Only Sections - Ranking & States */}
-      {isAdmin && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      {/* Ranking & States - Visible to ALL for Gamification */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             
-            {/* RANKING CARD - Improved Visual Design */}
+            {/* RANKING CARD */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-full">
                 <div className="p-5 border-b border-slate-100 bg-slate-50/30">
                     <h3 className="font-bold text-slate-800 flex items-center gap-2">
@@ -441,7 +503,7 @@ export const Dashboard: React.FC = () => {
                 </div>
                 <div className="divide-y divide-slate-100 max-h-[350px] overflow-y-auto">
                     {ranking.map((at, idx) => (
-                        <div key={at.id} className="p-4 flex items-center gap-4 hover:bg-slate-50 transition-colors">
+                        <div key={at.id} className={`p-4 flex items-center gap-4 transition-colors ${user?.id === at.userId ? 'bg-blue-50/50' : 'hover:bg-slate-50'}`}>
                             {/* Rank Badge */}
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm shadow-sm shrink-0
                                 ${idx === 0 ? 'bg-yellow-100 text-yellow-700 ring-4 ring-yellow-50' : 
@@ -454,7 +516,7 @@ export const Dashboard: React.FC = () => {
                             <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
                                     <span className="font-bold text-slate-900 truncate">{at.nome}</span>
-                                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded font-mono text-slate-500">{at.codigo}</span>
+                                    {user?.id === at.userId && <span className="text-[10px] bg-blue-200 text-blue-800 px-1.5 rounded font-bold">VOCÊ</span>}
                                 </div>
                                 <div className="flex items-center gap-3 text-xs text-slate-500 mt-1">
                                     <span className="flex items-center gap-1"><CheckCircle size={10} className="text-green-500"/> {at.countPagos} Vendas</span>
@@ -479,6 +541,7 @@ export const Dashboard: React.FC = () => {
                 </div>
             </div>
 
+            {/* States Chart */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
                  <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
                     <AlertOctagon size={20} className="text-orange-500"/> Estados Mais Vendidos
@@ -502,8 +565,7 @@ export const Dashboard: React.FC = () => {
                     </ResponsiveContainer>
                 </div>
             </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };

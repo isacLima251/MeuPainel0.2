@@ -3,7 +3,7 @@ import { useData } from '../contexts/DataContext';
 import { useAuth } from '../App';
 import { 
   Filter, Plus, AlertTriangle, Edit2, X, Save, Search, 
-  ChevronDown, ChevronUp, Megaphone, Tag, History, Clock, Webhook 
+  ChevronDown, ChevronUp, Megaphone, Tag, History, Clock, Webhook, Check, Calendar 
 } from 'lucide-react';
 import { STATUS_COLORS, STATUS_LABELS } from '../constants';
 import { Venda, SaleStatus, DiscountType } from '../types';
@@ -31,9 +31,20 @@ export const Sales: React.FC = () => {
 
       // Role filter: Attendant only sees their own
       if (!isAdmin && user) {
-          // Find attendant profile for this user
           const myAttendant = atendentes.find(a => a.userId === user.id);
           if (myAttendant && s.atendenteId !== myAttendant.id) return false;
+      }
+
+      // Filter Logic
+      if (filterStatus === 'PENDING_ACTION') {
+          // Actions Needed: Scheduled for Today or In The Past, or "Waiting Payment"
+          if (s.status === 'AGUARDANDO_PAGAMENTO') return true;
+          if (s.status === 'AGENDADO') {
+              const scheduleDate = new Date(s.dataAgendamento).setHours(0,0,0,0);
+              const today = new Date().setHours(0,0,0,0);
+              return scheduleDate <= today;
+          }
+          return false;
       }
 
       const matchesStatus = filterStatus === 'ALL' || s.status === filterStatus;
@@ -59,6 +70,24 @@ export const Sales: React.FC = () => {
       const { id, ...updates } = editingSale;
       updateSale(id, updates, user.name);
       setEditingSale(null);
+  };
+
+  const handleQuickStatusChange = (id: string, newStatus: SaleStatus) => {
+      if (!user) return;
+      if (window.confirm(`Tem certeza que deseja marcar esta venda como ${STATUS_LABELS[newStatus]}?`)) {
+          updateSale(id, { status: newStatus }, user.name);
+      }
+  };
+
+  const handleQuickReschedule = (sale: Venda) => {
+      if (!user) return;
+      // Simple Reschedule to Tomorrow
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      if (window.confirm(`Reagendar contato de ${sale.clienteNome} para amanhã?`)) {
+          updateSale(sale.id, { dataAgendamento: tomorrow.toISOString() }, user.name);
+      }
   };
 
   const simulatePostback = () => {
@@ -90,6 +119,7 @@ export const Sales: React.FC = () => {
   // Configuration for Filter Pills
   const filterOptions = [
       { id: 'ALL', label: 'Todos', activeClass: 'bg-slate-800 text-white border-slate-800 ring-2 ring-slate-200' },
+      { id: 'PENDING_ACTION', label: 'AÇÃO NECESSÁRIA', activeClass: 'bg-orange-500 text-white border-orange-500 ring-2 ring-orange-200 animate-pulse' },
       { id: 'AGENDADO', label: 'Agendado', activeClass: 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-200' },
       { id: 'AGUARDANDO_PAGAMENTO', label: 'Aguardando Pag.', activeClass: 'bg-yellow-500 text-white border-yellow-500 ring-2 ring-yellow-200' },
       { id: 'PAGO', label: 'Pago', activeClass: 'bg-green-600 text-white border-green-600 ring-2 ring-green-200' },
@@ -178,7 +208,7 @@ export const Sales: React.FC = () => {
                         <th className="px-6 py-4 font-semibold">Status</th>
                         <th className="px-6 py-4 font-semibold">Atendente</th>
                         <th className="px-6 py-4 font-semibold">Valor / Comissão</th>
-                        <th className="px-6 py-4 font-semibold text-right">Ações</th>
+                        <th className="px-6 py-4 font-semibold text-right">Ações Rápidas</th>
                     </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -238,23 +268,38 @@ export const Sales: React.FC = () => {
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    {isAdmin ? (
+                                    <div className="flex justify-end gap-1">
+                                        {/* Quick Actions for Workflow */}
+                                        <button 
+                                            onClick={() => handleQuickStatusChange(sale.id, 'PAGO')}
+                                            title="Marcar como Pago"
+                                            className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                                        >
+                                            <Check size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleQuickStatusChange(sale.id, 'FRUSTRADO')}
+                                            title="Marcar como Frustrado"
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                         <button 
+                                            onClick={() => handleQuickReschedule(sale)}
+                                            title="Reagendar para Amanhã"
+                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                        >
+                                            <Calendar size={18} />
+                                        </button>
+                                        <div className="w-px bg-slate-200 mx-1"></div>
                                         <button 
                                             onClick={() => setEditingSale(sale)}
-                                            className="text-slate-400 hover:text-blue-600 p-2 rounded hover:bg-slate-100 transition-colors">
-                                            <Edit2 size={16} />
+                                            title="Editar Detalhes"
+                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-100 rounded transition-colors"
+                                        >
+                                            <Edit2 size={18} />
                                         </button>
-                                    ) : (
-                                        <div className="flex justify-end gap-2">
-                                            {/* Attendant View Actions (Read Only Mode Trigger) */}
-                                            <button 
-                                                onClick={() => setEditingSale(sale)}
-                                                className="text-xs bg-slate-100 text-slate-600 hover:bg-slate-200 px-3 py-1.5 rounded border border-slate-200 flex items-center gap-1"
-                                            >
-                                                Ver Detalhes
-                                            </button>
-                                        </div>
-                                    )}
+                                    </div>
                                 </td>
                             </tr>
                             
@@ -343,7 +388,7 @@ export const Sales: React.FC = () => {
                     {filteredSales.length === 0 && (
                         <tr>
                             <td colSpan={7} className="px-6 py-8 text-center text-slate-500">
-                                Nenhuma venda encontrada.
+                                Nenhuma venda encontrada para este filtro.
                             </td>
                         </tr>
                     )}

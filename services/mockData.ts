@@ -6,20 +6,28 @@ export const mockUsers: User[] = [
   { id: 'u3', name: 'Ana Atendente', email: 'ana@rai.com', role: 'atendente' },
 ];
 
+export const mockCriativos: Criativo[] = [
+  { id: 'c1', nome: 'VID01_DOR_COSTAS', campanha: 'Campanha Frio', status: 'aprovado' },
+  { id: 'c2', nome: 'IMG05_ANTES_DEPOIS', campanha: 'Campanha Verão', status: 'teste' },
+];
+
 export const mockAtendentes: Atendente[] = [
-  { id: 'a1', userId: 'u2', nome: 'Isabela', codigo: 'ISA', telefone: '11999999999', salarioMensal: 1500, ativo: true },
-  { id: 'a2', userId: 'u3', nome: 'Ana', codigo: 'ANA', telefone: '11988888888', salarioMensal: 1500, ativo: true },
+  { 
+      id: 'a1', userId: 'u2', nome: 'Isabela', codigo: 'ISA', telefone: '11999999999', salarioMensal: 1500, ativo: true,
+      metaMensal: { quantidade: 50, valor: 15000 },
+      criativosAutorizados: ['c1', 'c2'] // Isabela can sell both
+  },
+  { 
+      id: 'a2', userId: 'u3', nome: 'Ana', codigo: 'ANA', telefone: '11988888888', salarioMensal: 1500, ativo: true,
+      metaMensal: { quantidade: 40, valor: 12000 },
+      criativosAutorizados: ['c2'] // Ana only sells c2
+  },
 ];
 
 export const mockKits: Kit[] = [
   { id: 'k1', nome: 'Kit 3 Meses', codigoBraip: 'K3M', comissaoFixa: 0, comissaoPercentual: 10 },
   { id: 'k2', nome: 'Kit 5 Meses', codigoBraip: 'K5M', comissaoFixa: 0, comissaoPercentual: 15 },
   { id: 'k3', nome: 'Kit 12 Meses', codigoBraip: 'K12M', comissaoFixa: 50, comissaoPercentual: 0 },
-];
-
-export const mockCriativos: Criativo[] = [
-  { id: 'c1', nome: 'VID01_DOR_COSTAS', campanha: 'Campanha Frio', status: 'aprovado' },
-  { id: 'c2', nome: 'IMG05_ANTES_DEPOIS', campanha: 'Campanha Verão', status: 'teste' },
 ];
 
 export const mockCreativeExpenses: CreativeExpense[] = [
@@ -41,6 +49,13 @@ const generateSales = (): Venda[] => {
     const status = statuses[Math.floor(Math.random() * statuses.length)];
     const kit = mockKits[Math.floor(Math.random() * mockKits.length)];
     const atendente = mockAtendentes[Math.floor(Math.random() * mockAtendentes.length)];
+    
+    // Logic to ensure mock data respects authorization (roughly)
+    let criativoId = mockCriativos[0].id;
+    if (atendente.criativosAutorizados && atendente.criativosAutorizados.length > 0) {
+        criativoId = atendente.criativosAutorizados[Math.floor(Math.random() * atendente.criativosAutorizados.length)];
+    }
+
     const valor = kit.id === 'k1' ? 197 : kit.id === 'k2' ? 297 : 497;
     
     let comissao = 0;
@@ -60,7 +75,7 @@ const generateSales = (): Venda[] => {
       clienteCpf: '000.000.000-00',
       clienteEstado: ['SP', 'RJ', 'MG', 'RS', 'BA'][Math.floor(Math.random() * 5)],
       atendenteId: atendente.id,
-      criativoId: mockCriativos[Math.floor(Math.random() * mockCriativos.length)].id,
+      criativoId: criativoId,
       kitId: kit.id,
       status: status,
       dataAgendamento: new Date(Date.now() - Math.floor(Math.random() * 30) * 24 * 60 * 60 * 1000).toISOString(),

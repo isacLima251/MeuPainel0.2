@@ -27,6 +27,11 @@ export interface Atendente {
   salarioMensal: number;
   ativo: boolean;
   comissoesPersonalizadas?: CommissionOverride[]; // Custom commission per kit
+  metaMensal?: {
+      quantidade: number;
+      valor: number;
+  };
+  criativosAutorizados?: string[]; // IDs of Creatives this attendant is allowed to sell
 }
 
 export interface Kit {
@@ -115,8 +120,9 @@ export interface DashboardMetrics {
   valorPago: number;
   valorFrustrado: number;
 
-  projecaoMaxima: number;
+  projecaoMaxima: number; // Comissoes (Pagas + Pendentes)
   projecaoRealista: number;
+  projecaoGanhosTotal: number; // Salario + Comissoes (Pagas + Pendentes)
   taxaConversao: number;
   taxaFrustracao: number;
 }
