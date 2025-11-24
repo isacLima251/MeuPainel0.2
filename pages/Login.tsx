@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
 import { useData } from '../contexts/DataContext'; // Acesso aos dados globais de usuários
-import { AlertCircle, Loader2 } from 'lucide-react';
+import { AlertCircle, Loader2, Shield, Building2 } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
@@ -10,7 +10,7 @@ export const Login: React.FC = () => {
   const navigate = useNavigate();
   
   const [email, setEmail] = useState('admin@rai.com');
-  const [password, setPassword] = useState('');
+  const [password, setPassword] = useState('123456');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -52,6 +52,16 @@ export const Login: React.FC = () => {
         });
         
     }, 1000);
+  };
+
+  const fillCredentials = (type: 'super' | 'admin') => {
+      if (type === 'super') {
+          setEmail('super@rai.com');
+      } else {
+          setEmail('admin@rai.com');
+      }
+      setPassword('123456');
+      setError(null);
   };
 
   return (
@@ -96,7 +106,7 @@ export const Login: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isLoading}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none transition-all ${error && error.includes('Usuário') ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-500 focus:border-blue-500'} disabled:bg-slate-50 disabled:text-slate-400`}
-                    placeholder="admin@rai.com"
+                    placeholder="email@empresa.com"
                 />
             </div>
             <div>
@@ -129,8 +139,29 @@ export const Login: React.FC = () => {
             </button>
         </form>
 
-        <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
-            <p>Acesso exclusivo para colaboradores autorizados.</p>
+        {/* Demo Account Switcher */}
+        <div className="mt-6 pt-6 border-t border-slate-100">
+            <p className="text-xs text-slate-400 text-center mb-3">Acesso Rápido (Ambiente de Teste)</p>
+            <div className="grid grid-cols-2 gap-3">
+                <button 
+                    type="button"
+                    onClick={() => fillCredentials('super')}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-xs text-slate-600 hover:text-blue-700"
+                >
+                    <Shield size={16} className="mb-1" />
+                    <span className="font-bold">Super Admin</span>
+                    <span className="text-[10px] text-slate-400">(Dono SaaS)</span>
+                </button>
+                <button 
+                    type="button"
+                    onClick={() => fillCredentials('admin')}
+                    className="flex flex-col items-center justify-center p-2 rounded-lg border border-slate-200 hover:border-blue-300 hover:bg-blue-50 transition-all text-xs text-slate-600 hover:text-blue-700"
+                >
+                    <Building2 size={16} className="mb-1" />
+                    <span className="font-bold">Admin Cliente</span>
+                    <span className="text-[10px] text-slate-400">(Empresa)</span>
+                </button>
+            </div>
         </div>
       </div>
     </div>

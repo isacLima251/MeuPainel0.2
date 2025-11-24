@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Venda, Atendente, Kit, Criativo, Despesa, User, DashboardMetrics, Log, SaleStatus, DiscountType, CreativeExpense } from '../types';
-import { mockAtendentes, mockKits, mockCriativos, mockUsers, mockVendasInitial, mockDespesas, mockCreativeExpenses, mockLogs } from '../services/mockData';
+import { Venda, Atendente, Kit, Criativo, Despesa, User, DashboardMetrics, Log, SaleStatus, DiscountType, CreativeExpense, Client } from '../types';
+import { mockAtendentes, mockKits, mockCriativos, mockUsers, mockVendasInitial, mockDespesas, mockCreativeExpenses, mockLogs, mockClients } from '../services/mockData';
 
 interface DataContextType {
   sales: Venda[];
@@ -10,6 +10,7 @@ interface DataContextType {
   creativeExpenses: CreativeExpense[];
   despesas: Despesa[];
   users: User[];
+  clients: Client[];
   logs: Log[];
   getMetrics: (atendenteId?: string, startDate?: Date, endDate?: Date) => DashboardMetrics;
   addSale: (sale: Venda) => void;
@@ -17,7 +18,8 @@ interface DataContextType {
   addDespesa: (despesa: Despesa) => void;
   updateDespesa: (id: string, updates: Partial<Despesa>) => void;
   deleteDespesa: (id: string) => void;
-  addAtendente: (atendente: Atendente) => void;
+  // Updated Signature for unified creation
+  addAtendente: (atendenteData: Omit<Atendente, 'id' | 'userId' | 'clientId'>, loginData: {email: string, password: string}, clientId: string) => void;
   updateAtendente: (id: string, updates: Partial<Atendente>) => void;
   deleteAtendente: (id: string) => void;
   toggleAtendenteStatus: (id: string) => void;
@@ -29,6 +31,10 @@ interface DataContextType {
   deleteCriativo: (id: string) => void;
   addCreativeExpense: (expense: CreativeExpense) => void;
   deleteCreativeExpense: (id: string) => void;
+  // Client Management
+  addClient: (client: Client) => void;
+  updateClient: (id: string, updates: Partial<Client>) => void;
+  toggleClientStatus: (id: string) => void; // New function
   processBraipWebhook: (payload: any) => { success: boolean, message: string }; 
   isLoading: boolean;
 }
@@ -55,6 +61,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [kits, setKits] = useState<Kit[]>(mockKits);
   const [criativos, setCriativos] = useState<Criativo[]>(mockCriativos);
   const [users, setUsers] = useState<User[]>(mockUsers);
+  const [clients, setClients] = useState<Client[]>(mockClients);
   
   const [isLoading, setIsLoading] = useState(false);
 
@@ -299,7 +306,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const atendente = atendentes.find(a => a.codigo === utm_atendente?.toUpperCase());
     const criativo = criativos.find(c => c.nome === utm_content?.toUpperCase());
     
-    // Fallback logic changed: Find exact match or return undefined (do not force kit[0] if match fails to ensure accuracy)
     const kit = kits.find(k => k.nome === product) || kits[0];
 
     // Initial ID check
@@ -384,19 +390,32 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
-  const addAtendente = (atendente: Atendente) => {
-    setAtendentes(prev => [...prev, atendente]);
-    
-    // Mock: Also create a User entry for login
-    const newUser: User = {
-        id: atendente.userId,
-        name: atendente.nome,
-        email: `${atendente.codigo.toLowerCase()}@rai.com`,
-        role: 'atendente'
-    };
-    setUsers(prev => [...prev, newUser]);
+  // UNIFIED CREATION: Creates Atendente AND User
+  const addAtendente = (atendenteData: Omit<Atendente, 'id' | 'userId' | 'clientId'>, loginData: {email: string, password: string}, clientId: string) => {
+    const userId = `u-${Date.now()}`;
+    const atendenteId = `att-${Date.now()}`;
 
-    addLog('Admin', 'Criação', `Atendente adicionado: ${atendente.nome}. Login: ${newUser.email}`);
+    // 1. Create User Login
+    const newUser: User = {
+        id: userId,
+        name: atendenteData.nome,
+        email: loginData.email,
+        role: 'atendente',
+        clientId: clientId
+    };
+
+    // 2. Create Atendente Record
+    const newAtendente: Atendente = {
+        id: atendenteId,
+        userId: userId,
+        clientId: clientId,
+        ...atendenteData
+    };
+
+    setUsers(prev => [...prev, newUser]);
+    setAtendentes(prev => [...prev, newAtendente]);
+
+    addLog('Admin', 'Criação', `Atendente e Login criado: ${atendenteData.nome} (${loginData.email})`);
   };
 
   const updateAtendente = (id: string, updates: Partial<Atendente>) => {
@@ -466,15 +485,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
   };
 
+  // --- CLIENTS MANAGEMENT ---
+  const addClient = (client: Client) => {
+      setClients(prev => [...prev, client]);
+      addLog('Super Admin', 'Criação', `Novo Cliente SaaS: ${client.name}`);
+  };
+
+  const updateClient = (id: string, updates: Partial<Client>) => {
+      setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+      addLog('Super Admin', 'Edição', `Cliente atualizado: ${id}`);
+  };
+
+  const toggleClientStatus = (id: string) => {
+      setClients(prev => prev.map(c => {
+          if (c.id === id) {
+              const newStatus = !c.active;
+              addLog('Super Admin', 'Alteração Status', `Cliente ${c.name} agora está ${newStatus ? 'ATIVO' : 'INATIVO'}`);
+              return { ...c, active: newStatus };
+          }
+          return c;
+      }));
+  };
+
   return (
     <DataContext.Provider value={{
-      sales, atendentes, kits, criativos, creativeExpenses, despesas, users, logs,
+      sales, atendentes, kits, criativos, creativeExpenses, despesas, users, logs, clients,
       getMetrics,
       addSale, updateSale, addDespesa, updateDespesa, deleteDespesa,
       addAtendente, updateAtendente, deleteAtendente, toggleAtendenteStatus,
       addKit, updateKit, deleteKit,
       addCriativo, updateCriativo, deleteCriativo,
       addCreativeExpense, deleteCreativeExpense,
+      addClient, updateClient, toggleClientStatus,
       processBraipWebhook,
       isLoading
     }}>

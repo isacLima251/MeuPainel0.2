@@ -1,11 +1,14 @@
-import { User, Atendente, Kit, Criativo, Venda, Despesa, Log, CreativeExpense } from '../types';
+import { User, Atendente, Kit, Criativo, Venda, Despesa, Log, CreativeExpense, Client } from '../types';
 
 // --- CONFIGURAÇÃO INICIAL (SEEDS) ---
-// Estes dados representam a configuração inicial do sistema.
-// Para produção, apenas o usuário Admin deve existir inicialmente.
+
+export const mockClients: Client[] = [
+  { id: 'c1', name: 'Empresa Exemplo LTDA', documento: '00.000.000/0001-00', plan: 'pro', active: true, createdAt: new Date().toISOString() }
+];
 
 export const mockUsers: User[] = [
-  { id: 'u1', name: 'Administrador', email: 'admin@rai.com', role: 'admin' },
+  { id: 'u1', name: 'Super Admin', email: 'super@rai.com', role: 'super_admin' },
+  { id: 'u2', name: 'Admin Empresa', email: 'admin@rai.com', role: 'admin', clientId: 'c1' },
 ];
 
 // Listas vazias aguardando cadastro via interface ou banco de dados

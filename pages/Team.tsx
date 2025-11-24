@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Phone, DollarSign, Save, X, Trash2, Edit2, AlertCircle, Target, Lock, Check } from 'lucide-react';
+import { useAuth } from '../App';
+import { Plus, Phone, DollarSign, Save, X, Trash2, Edit2, AlertCircle, Target, Lock, Check, Mail, Key } from 'lucide-react';
 import { Atendente, CommissionOverride } from '../types';
 
 export const Team: React.FC = () => {
   const { atendentes, sales, kits, criativos, addAtendente, updateAtendente, deleteAtendente, toggleAtendenteStatus } = useData();
+  const { user } = useAuth();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   
@@ -13,6 +15,10 @@ export const Team: React.FC = () => {
   const [newCode, setNewCode] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newSalary, setNewSalary] = useState<string>('');
+  
+  // New Login Fields
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   
   // Goals State
   const [goalQty, setGoalQty] = useState<string>('');
@@ -44,6 +50,8 @@ export const Team: React.FC = () => {
       setNewCode('');
       setNewPhone('');
       setNewSalary('');
+      setEmail('');
+      setPassword('');
       setGoalQty('');
       setGoalValue('');
       setCustomCommissions([]);
@@ -63,13 +71,16 @@ export const Team: React.FC = () => {
       setGoalValue(att.metaMensal?.valor.toString() || '');
       setCustomCommissions(att.comissoesPersonalizadas || []);
       setAllowedCreatives(att.criativosAutorizados || []);
+      // Cannot edit email/password here in this basic version, simplified for creation only
+      setEmail('registrado@sistema.com'); 
+      setPassword('*****');
       setIsModalOpen(true);
   };
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      if (window.confirm("Tem certeza que deseja excluir este atendente? Esta ação é irreversível.")) {
+      if (window.confirm("Tem certeza que deseja excluir este atendente e remover o acesso dele? Esta ação é irreversível.")) {
           deleteAtendente(id);
       }
   };
@@ -115,12 +126,17 @@ export const Team: React.FC = () => {
       if (editingId) {
           updateAtendente(editingId, attendantData);
       } else {
-          const newAttendant: Atendente = {
-              id: `att-${Date.now()}`,
-              userId: `u-${Date.now()}`, // Mock user mapping
-              ...attendantData
-          };
-          addAtendente(newAttendant);
+          // Unified Creation
+          if (!user?.clientId && user?.role !== 'super_admin') {
+              alert("Erro de segurança: ID da empresa não encontrado.");
+              return;
+          }
+
+          addAtendente(
+              attendantData, 
+              { email, password },
+              user?.clientId || 'c1' // Fallback for Super Admin testing
+          );
       }
       setIsModalOpen(false);
   };
@@ -147,7 +163,7 @@ export const Team: React.FC = () => {
                </div>
                <div className="text-center">
                    <h3 className="font-bold text-slate-700 group-hover:text-blue-700">Adicionar Atendente</h3>
-                   <p className="text-xs text-slate-400 mt-1">Configurar UTM e Salário</p>
+                   <p className="text-xs text-slate-400 mt-1">Configurar Acesso e UTM</p>
                </div>
            </button>
 
@@ -253,6 +269,38 @@ export const Team: React.FC = () => {
                    <form onSubmit={handleSubmit}>
                        <div className="p-6 space-y-6 max-h-[60vh] overflow-y-auto custom-scrollbar">
                            
+                           {/* Login & Access Section (New) */}
+                           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 space-y-3">
+                               <h3 className="text-sm font-bold text-yellow-800 flex items-center gap-2">
+                                   <Key size={16} /> Credenciais de Acesso
+                               </h3>
+                               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                   <div>
+                                       <label className="block text-xs font-bold text-yellow-700 mb-1">E-mail de Login</label>
+                                       <div className="relative">
+                                           <Mail size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-yellow-500"/>
+                                           <input 
+                                                type="email" required={!editingId}
+                                                disabled={!!editingId} // Disable editing email after creation for now
+                                                value={email} onChange={e => setEmail(e.target.value)}
+                                                className="w-full pl-9 pr-3 py-2 border border-yellow-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-200 outline-none bg-white"
+                                                placeholder="email@empresa.com"
+                                           />
+                                       </div>
+                                   </div>
+                                   <div>
+                                       <label className="block text-xs font-bold text-yellow-700 mb-1">Senha Inicial</label>
+                                       <input 
+                                            type="text" required={!editingId}
+                                            disabled={!!editingId}
+                                            value={password} onChange={e => setPassword(e.target.value)}
+                                            className="w-full px-3 py-2 border border-yellow-300 rounded-lg text-sm focus:ring-2 focus:ring-yellow-200 outline-none bg-white"
+                                            placeholder="******"
+                                       />
+                                   </div>
+                               </div>
+                           </div>
+
                            {/* UTM Warning */}
                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex gap-3 items-start">
                                <AlertCircle className="text-blue-600 shrink-0 mt-0.5" size={18} />
@@ -438,7 +486,7 @@ export const Team: React.FC = () => {
                                type="submit"
                                className="px-6 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold shadow-lg shadow-blue-200 flex items-center gap-2 transform active:scale-95 transition-all">
                                <Save size={18} />
-                               {editingId ? 'Salvar Alterações' : 'Salvar Membro'}
+                               {editingId ? 'Salvar Alterações' : 'Criar Conta e Acesso'}
                            </button>
                        </div>
                    </form>

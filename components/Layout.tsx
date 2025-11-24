@@ -12,7 +12,8 @@ import {
   Bell,
   Megaphone,
   ClipboardList,
-  Settings
+  Settings,
+  Building2
 } from 'lucide-react';
 import { useAuth } from '../App';
 
@@ -35,7 +36,8 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
   const { user, logout } = useAuth();
   
-  const isAdmin = user?.role === 'admin';
+  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  const isSuperAdmin = user?.role === 'super_admin';
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -88,6 +90,14 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
                 <div className="mt-8 mb-4 px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Gestão
                 </div>
+                {isSuperAdmin && (
+                    <SidebarItem 
+                      to="/clientes" 
+                      icon={Building2} 
+                      label="Clientes (SaaS)" 
+                      active={location.pathname === '/clientes'} 
+                    />
+                )}
                 <SidebarItem 
                   to="/financeiro" 
                   icon={DollarSign} 
@@ -146,7 +156,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               </div>
               <div className="flex-1 overflow-hidden">
                 <p className="text-sm font-medium text-slate-900 truncate">{user?.name}</p>
-                <p className="text-xs text-slate-500 truncate capitalize">{user?.role}</p>
+                <p className="text-xs text-slate-500 truncate capitalize">{user?.role.replace('_', ' ')}</p>
               </div>
             </div>
             <button 

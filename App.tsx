@@ -11,6 +11,7 @@ import { Kits } from './pages/Kits';
 import { Creatives } from './pages/Creatives';
 import { Logs } from './pages/Logs';
 import { Config } from './pages/Config';
+import { Clients } from './pages/Clients'; // New SaaS Page
 import { User } from './types';
 import { DataProvider } from './contexts/DataContext';
 
@@ -68,7 +69,15 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, isAuthenticated } = useAuth();
     if (!isAuthenticated) return <Navigate to="/login" />;
-    if (user?.role !== 'admin') return <Navigate to="/" />; // Redirect attendants to dashboard
+    if (user?.role !== 'admin' && user?.role !== 'super_admin') return <Navigate to="/" />;
+    return <Layout>{children}</Layout>;
+};
+
+// --- Super Admin Route Wrapper ---
+const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user, isAuthenticated } = useAuth();
+    if (!isAuthenticated) return <Navigate to="/login" />;
+    if (user?.role !== 'super_admin') return <Navigate to="/" />;
     return <Layout>{children}</Layout>;
 };
 
@@ -97,6 +106,13 @@ const App: React.FC = () => {
               <ProtectedRoute>
                 <Training />
               </ProtectedRoute>
+            } />
+
+            {/* Super Admin Modules */}
+            <Route path="/clientes" element={
+              <SuperAdminRoute>
+                <Clients />
+              </SuperAdminRoute>
             } />
 
             {/* Admin Modules */}

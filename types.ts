@@ -1,14 +1,24 @@
-export type UserRole = 'admin' | 'atendente';
+export type UserRole = 'super_admin' | 'admin' | 'atendente';
 
 export type SaleStatus = 'AGENDADO' | 'AGUARDANDO_PAGAMENTO' | 'PAGO' | 'FRUSTRADO';
 
 export type DiscountType = 'proporcional' | 'zerar' | 'nao_afeta';
+
+export interface Client {
+  id: string;
+  name: string;
+  documento: string; // CNPJ/CPF
+  plan: 'trial' | 'pro' | 'enterprise';
+  active: boolean;
+  createdAt: string;
+}
 
 export interface User {
   id: string;
   name: string;
   email: string;
   role: UserRole;
+  clientId?: string; // Null for Super Admin, required for others
   avatar?: string;
 }
 
@@ -20,7 +30,8 @@ export interface CommissionOverride {
 
 export interface Atendente {
   id: string;
-  userId: string;
+  userId: string; // Link to User table
+  clientId: string; // Tenant ID
   nome: string;
   codigo: string; // e.g., ISA, ANA
   telefone: string;
@@ -36,6 +47,7 @@ export interface Atendente {
 
 export interface Kit {
   id: string;
+  clientId?: string;
   nome: string;
   codigoBraip: string;
   comissaoFixa: number;
@@ -45,6 +57,7 @@ export interface Kit {
 
 export interface Criativo {
   id: string;
+  clientId?: string;
   nome: string; // e.g., VID30_DOR
   campanha: string;
   status: 'teste' | 'aprovado' | 'ruim';
@@ -52,6 +65,7 @@ export interface Criativo {
 
 export interface CreativeExpense {
   id: string;
+  clientId?: string;
   criativoId: string;
   valor: number;
   data: string; // ISO Date
@@ -59,6 +73,7 @@ export interface CreativeExpense {
 
 export interface Log {
   id: string;
+  clientId?: string;
   usuarioNome: string; // Quem fez a ação
   acao: string; // "Alterou status", "Editou venda"
   detalhes: string; // "De AGENDADO para PAGO"
@@ -68,6 +83,7 @@ export interface Log {
 
 export interface Venda {
   id: string;
+  clientId?: string;
   pedidoIdBraip: string;
   clienteNome: string;
   clienteTelefone: string;
@@ -93,6 +109,7 @@ export interface Venda {
 
 export interface Despesa {
   id: string;
+  clientId?: string;
   descricao: string;
   valor: number;
   categoria: string;
