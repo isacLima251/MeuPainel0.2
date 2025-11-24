@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
-import { UserRole } from '../types';
+import { useData } from '../contexts/DataContext'; // Acesso aos dados globais de usuários
 import { AlertCircle, Loader2 } from 'lucide-react';
 
 export const Login: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
+  const { users } = useData(); // Buscando usuários do "Banco de Dados"
   const navigate = useNavigate();
+  
   const [email, setEmail] = useState('admin@rai.com');
   const [password, setPassword] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Monitora o estado de autenticação e redireciona automaticamente
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/');
@@ -24,16 +25,11 @@ export const Login: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    // Simulate API call
+    // Simulação de chamada de API (Delay de rede)
     setTimeout(() => {
-        // Mock Auth Logic
-        const validUsers = [
-            { email: 'admin@rai.com', role: 'admin', name: 'Administrador Silva', id: 'u1' },
-            { email: 'isa@rai.com', role: 'atendente', name: 'Isabela Atendente', id: 'u2' }
-        ];
-        const validPassword = '123456';
-
-        const userFound = validUsers.find(u => u.email === email);
+        // Validação contra a base de dados (users do Context)
+        const userFound = users.find(u => u.email === email);
+        const validPassword = '123456'; // Em produção, usar hash/bcrypt no backend
 
         if (!userFound) {
             setError('Usuário não encontrado. Verifique o e-mail digitado.');
@@ -52,18 +48,16 @@ export const Login: React.FC = () => {
             id: userFound.id,
             name: userFound.name,
             email: userFound.email,
-            role: userFound.role as UserRole
+            role: userFound.role
         });
         
-        // O redirecionamento é tratado pelo useEffect
-    }, 1500); // Aumentado levemente para mostrar o loading visual
+    }, 1000);
   };
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
       <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-200 relative overflow-hidden">
         
-        {/* Prominent Loading Overlay */}
         {isLoading && (
             <div className="absolute inset-0 bg-white/90 backdrop-blur-sm z-20 flex flex-col items-center justify-center transition-all duration-300 animate-in fade-in">
                 <div className="relative mb-4">
@@ -102,7 +96,7 @@ export const Login: React.FC = () => {
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={isLoading}
                     className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:outline-none transition-all ${error && error.includes('Usuário') ? 'border-red-300 focus:ring-red-200' : 'border-slate-300 focus:ring-blue-500 focus:border-blue-500'} disabled:bg-slate-50 disabled:text-slate-400`}
-                    placeholder="seu@email.com"
+                    placeholder="admin@rai.com"
                 />
             </div>
             <div>
@@ -137,11 +131,6 @@ export const Login: React.FC = () => {
 
         <div className="mt-6 pt-6 border-t border-slate-100 text-center text-xs text-slate-400">
             <p>Acesso exclusivo para colaboradores autorizados.</p>
-            <div className="mt-2 p-2 bg-slate-50 rounded border border-slate-200 inline-block text-left">
-                <p><strong>Admin:</strong> admin@rai.com</p>
-                <p><strong>Atendente:</strong> isa@rai.com</p>
-                <p><strong>Senha:</strong> 123456</p>
-            </div>
         </div>
       </div>
     </div>

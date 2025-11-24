@@ -90,32 +90,6 @@ export const Sales: React.FC = () => {
       }
   };
 
-  const simulatePostback = () => {
-      const orderId = `BRAIP-${Math.floor(Math.random() * 90000) + 10000}`;
-      const isWrong = Math.random() > 0.7; // 30% chance of unidentified sale simulation
-      
-      // Simulating Raw JSON Payload from Braip
-      const braipPayload = {
-        order_id: orderId,
-        status: "AGENDADO",
-        product: "Kit 3 Meses", // Needs to match a Kit name
-        value: 197.00,
-        customer: {
-            name: `Cliente Webhook ${Math.floor(Math.random() * 100)}`,
-            phone: "11999990000",
-            cpf: "123.456.789-00",
-            state: "SP"
-        },
-        // UTMs (key for identification)
-        utm_campaign: "Campanha Verão",
-        utm_content: isWrong ? "CODIGO_ERRADO" : "VID01_DOR_COSTAS", // Needs to match Creative Name
-        utm_atendente: isWrong ? "INVALIDO" : "ISA" // Needs to match Attendant Code
-      };
-
-      const result = processBraipWebhook(braipPayload);
-      alert(`Simulação Postback:\n\nPayload Enviado: ${JSON.stringify(braipPayload, null, 2)}\n\nResultado: ${result.message}`);
-  };
-
   // Configuration for Filter Pills
   const filterOptions = [
       { id: 'ALL', label: 'Todos', activeClass: 'bg-slate-800 text-white border-slate-800 ring-2 ring-slate-200' },
@@ -146,13 +120,6 @@ export const Sales: React.FC = () => {
                 Sem Identificação
                 </button>
             )}
-            
-            <button 
-                onClick={simulatePostback}
-                className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 shadow-lg shadow-slate-200">
-                <Webhook size={16} />
-                Simular Webhook Braip
-            </button>
         </div>
       </div>
 

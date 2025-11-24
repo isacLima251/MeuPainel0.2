@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Venda, Atendente, Kit, Criativo, Despesa, User, DashboardMetrics, Log, SaleStatus, DiscountType, CreativeExpense } from '../types';
-import { mockAtendentes, mockKits, mockCriativos, mockUsers } from '../services/mockData';
+import { mockAtendentes, mockKits, mockCriativos, mockUsers, mockVendasInitial, mockDespesas, mockCreativeExpenses, mockLogs } from '../services/mockData';
 
 interface DataContextType {
   sales: Venda[];
@@ -44,38 +44,19 @@ export const useData = () => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Initialize transactional data as empty arrays (Ready for API integration)
-  const [sales, setSales] = useState<Venda[]>([]);
-  const [logs, setLogs] = useState<Log[]>([]);
-  const [creativeExpenses, setCreativeExpenses] = useState<CreativeExpense[]>([]);
-  const [despesas, setDespesas] = useState<Despesa[]>([]);
+  // Initialize transactional data
+  const [sales, setSales] = useState<Venda[]>(mockVendasInitial);
+  const [logs, setLogs] = useState<Log[]>(mockLogs);
+  const [creativeExpenses, setCreativeExpenses] = useState<CreativeExpense[]>(mockCreativeExpenses);
+  const [despesas, setDespesas] = useState<Despesa[]>(mockDespesas);
   
-  // Initialize configuration data with seeds or empty
+  // Initialize configuration data
   const [atendentes, setAtendentes] = useState<Atendente[]>(mockAtendentes);
   const [kits, setKits] = useState<Kit[]>(mockKits);
   const [criativos, setCriativos] = useState<Criativo[]>(mockCriativos);
   const [users, setUsers] = useState<User[]>(mockUsers);
   
   const [isLoading, setIsLoading] = useState(false);
-
-  // TODO: Replace with API fetch in useEffect
-  /*
-  useEffect(() => {
-    const fetchData = async () => {
-        setIsLoading(true);
-        try {
-            const salesData = await api.get('/sales');
-            setSales(salesData);
-            // ... fetch other data
-        } catch (error) {
-            console.error(error);
-        } finally {
-            setIsLoading(false);
-        }
-    };
-    fetchData();
-  }, []);
-  */
 
   // --- Helper: Add Log ---
   const addLog = (usuarioNome: string, acao: string, detalhes: string) => {
@@ -246,8 +227,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 0);
 
     const projecaoRealista = projecaoMaxima * taxaConversao;
-    
-    // Projeção de Ganhos Total = Salário + Comissões Pagas + Comissões Potenciais (projecaoMaxima já inclui pagas + potenciais)
     const projecaoGanhosTotal = currentAttendantSalary + projecaoMaxima;
 
     return {
@@ -312,15 +291,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const processBraipWebhook = (payload: any): { success: boolean, message: string } => {
     const { order_id, status, product, value, customer, utm_campaign, utm_content, utm_atendente } = payload;
     
+    // Safety check for empty configuration
+    if (kits.length === 0) {
+        return { success: false, message: 'ERRO CRÍTICO: Nenhum Kit/Produto cadastrado no sistema.' };
+    }
+
     const atendente = atendentes.find(a => a.codigo === utm_atendente?.toUpperCase());
     const criativo = criativos.find(c => c.nome === utm_content?.toUpperCase());
-    const kit = kits.find(k => k.nome === product) || kits[0]; 
+    
+    // Fallback logic changed: Find exact match or return undefined (do not force kit[0] if match fails to ensure accuracy)
+    const kit = kits.find(k => k.nome === product) || kits[0];
 
     // Initial ID check
     let isUnidentified = !atendente || !criativo || !utm_campaign;
 
     // SECURITY CHECK: Attendant Authorization
-    // If attendant exists but is not authorized for this creative, flag as unidentified
     if (atendente && criativo) {
         if (atendente.criativosAutorizados && atendente.criativosAutorizados.length > 0) {
             const isAuthorized = atendente.criativosAutorizados.includes(criativo.id);
@@ -401,7 +386,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const addAtendente = (atendente: Atendente) => {
     setAtendentes(prev => [...prev, atendente]);
-    addLog('Admin', 'Criação', `Atendente adicionado: ${atendente.nome}`);
+    
+    // Mock: Also create a User entry for login
+    const newUser: User = {
+        id: atendente.userId,
+        name: atendente.nome,
+        email: `${atendente.codigo.toLowerCase()}@rai.com`,
+        role: 'atendente'
+    };
+    setUsers(prev => [...prev, newUser]);
+
+    addLog('Admin', 'Criação', `Atendente adicionado: ${atendente.nome}. Login: ${newUser.email}`);
   };
 
   const updateAtendente = (id: string, updates: Partial<Atendente>) => {
@@ -414,6 +409,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if(atendente) {
         addLog('Admin', 'Exclusão', `Atendente removido: ${atendente.nome}`);
         setAtendentes(prev => prev.filter(a => a.id !== id));
+        setUsers(prev => prev.filter(u => u.id !== atendente.userId)); // Remove login access
     }
   };
 
