@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Venda, Atendente, Kit, Criativo, Despesa, User, DashboardMetrics, Log, SaleStatus, DiscountType, CreativeExpense } from '../types';
-import { mockVendasInitial, mockAtendentes, mockKits, mockCriativos, mockDespesas, mockUsers, mockLogs, mockCreativeExpenses } from '../services/mockData';
+import { mockAtendentes, mockKits, mockCriativos, mockUsers } from '../services/mockData';
 
 interface DataContextType {
   sales: Venda[];
@@ -44,22 +44,38 @@ export const useData = () => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Initialize transactional data as empty arrays (Ready for API integration)
   const [sales, setSales] = useState<Venda[]>([]);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [creativeExpenses, setCreativeExpenses] = useState<CreativeExpense[]>([]);
+  const [despesas, setDespesas] = useState<Despesa[]>([]);
+  
+  // Initialize configuration data with seeds or empty
   const [atendentes, setAtendentes] = useState<Atendente[]>(mockAtendentes);
   const [kits, setKits] = useState<Kit[]>(mockKits);
   const [criativos, setCriativos] = useState<Criativo[]>(mockCriativos);
-  const [creativeExpenses, setCreativeExpenses] = useState<CreativeExpense[]>(mockCreativeExpenses);
-  const [despesas, setDespesas] = useState<Despesa[]>(mockDespesas);
   const [users, setUsers] = useState<User[]>(mockUsers);
-  const [logs, setLogs] = useState<Log[]>(mockLogs);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const [isLoading, setIsLoading] = useState(false);
 
+  // TODO: Replace with API fetch in useEffect
+  /*
   useEffect(() => {
-    setTimeout(() => {
-      setSales(mockVendasInitial);
-      setIsLoading(false);
-    }, 800);
+    const fetchData = async () => {
+        setIsLoading(true);
+        try {
+            const salesData = await api.get('/sales');
+            setSales(salesData);
+            // ... fetch other data
+        } catch (error) {
+            console.error(error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+    fetchData();
   }, []);
+  */
 
   // --- Helper: Add Log ---
   const addLog = (usuarioNome: string, acao: string, detalhes: string) => {
@@ -70,6 +86,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           detalhes,
           data: new Date().toISOString()
       };
+      // In production: await api.post('/logs', newLog);
       setLogs(prev => [newLog, ...prev]);
   };
 
@@ -258,11 +275,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addSale = (sale: Venda) => {
+    // In production: await api.post('/sales', sale);
     setSales(prev => [sale, ...prev]);
     addLog('Sistema/Webhook', 'Criação', 'Venda importada via Postback');
   };
 
   const updateSale = (id: string, updates: Partial<Venda>, modifiedBy: string) => {
+    // In production: await api.put(`/sales/${id}`, updates);
     setSales(prev => prev.map(s => {
       if (s.id !== id) return s;
 
@@ -303,10 +322,6 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // SECURITY CHECK: Attendant Authorization
     // If attendant exists but is not authorized for this creative, flag as unidentified
     if (atendente && criativo) {
-        // If authorized list is defined and not empty, we check. If undefined/empty, we might assume permissive or restricted. 
-        // Based on requirement "Select which... authorized", we assume strict checking if list exists.
-        // If list is missing (legacy data), we might want to default to true or false. 
-        // For safety in this update, we check if property exists.
         if (atendente.criativosAutorizados && atendente.criativosAutorizados.length > 0) {
             const isAuthorized = atendente.criativosAutorizados.includes(criativo.id);
             if (!isAuthorized) {
@@ -364,16 +379,19 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const addDespesa = (despesa: Despesa) => {
+      // In production: await api.post('/expenses', despesa);
       setDespesas(prev => [despesa, ...prev]);
       addLog('Admin', 'Criação', `Nova despesa: ${despesa.descricao} (R$ ${despesa.valor})`);
   };
 
   const updateDespesa = (id: string, updates: Partial<Despesa>) => {
+    // In production: await api.put(`/expenses/${id}`, updates);
     setDespesas(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     addLog('Admin', 'Edição', `Despesa atualizada: ${id}`);
   };
 
   const deleteDespesa = (id: string) => {
+      // In production: await api.delete(`/expenses/${id}`);
       const toDelete = despesas.find(d => d.id === id);
       if (toDelete) {
           addLog('Admin', 'Exclusão', `Despesa removida: ${toDelete.descricao}`);
