@@ -58,20 +58,11 @@ export const useAuth = () => {
   return context;
 };
 
-// --- Authenticated Layout Wrapper ---
-const AuthenticatedLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    return (
-        <DataProvider>
-            <Layout>{children}</Layout>
-        </DataProvider>
-    );
-};
-
 // --- Protected Route Wrapper ---
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { isAuthenticated } = useAuth();
     if (!isAuthenticated) return <Navigate to="/login" />;
-    return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
+    return <Layout>{children}</Layout>;
 };
 
 // --- Admin Route Wrapper ---
@@ -79,7 +70,7 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user, isAuthenticated } = useAuth();
     if (!isAuthenticated) return <Navigate to="/login" />;
     if (user?.role !== 'admin' && user?.role !== 'super_admin') return <Navigate to="/" />;
-    return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
+    return <Layout>{children}</Layout>;
 };
 
 // --- Super Admin Route Wrapper ---
@@ -87,82 +78,84 @@ const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
     const { user, isAuthenticated } = useAuth();
     if (!isAuthenticated) return <Navigate to="/login" />;
     if (user?.role !== 'super_admin') return <Navigate to="/" />;
-    return <AuthenticatedLayout>{children}</AuthenticatedLayout>;
+    return <Layout>{children}</Layout>;
 };
 
 // --- Main App ---
 const App: React.FC = () => {
   return (
     <AuthProvider>
-      <HashRouter>
-        <Routes>
-          <Route path="/login" element={<Login />} />
+      <DataProvider>
+        <HashRouter>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            
+            <Route path="/" element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/vendas" element={
+              <ProtectedRoute>
+                <Sales />
+              </ProtectedRoute>
+            } />
 
-          <Route path="/" element={
-            <ProtectedRoute>
-              <Dashboard />
-            </ProtectedRoute>
-          } />
+            <Route path="/treinamento" element={
+              <ProtectedRoute>
+                <Training />
+              </ProtectedRoute>
+            } />
 
-          <Route path="/vendas" element={
-            <ProtectedRoute>
-              <Sales />
-            </ProtectedRoute>
-          } />
+            {/* Super Admin Modules */}
+            <Route path="/clientes" element={
+              <SuperAdminRoute>
+                <Clients />
+              </SuperAdminRoute>
+            } />
 
-          <Route path="/treinamento" element={
-            <ProtectedRoute>
-              <Training />
-            </ProtectedRoute>
-          } />
-
-          {/* Super Admin Modules */}
-          <Route path="/clientes" element={
-            <SuperAdminRoute>
-              <Clients />
-            </SuperAdminRoute>
-          } />
-
-          {/* Admin Modules */}
-          <Route path="/financeiro" element={
-            <AdminRoute>
-              <Financial />
-            </AdminRoute>
-          } />
-
-          <Route path="/equipe" element={
-            <AdminRoute>
-              <Team />
-            </AdminRoute>
-          } />
-
-          <Route path="/kits" element={
-            <AdminRoute>
-              <Kits />
-            </AdminRoute>
-          } />
-
-          <Route path="/criativos" element={
-            <AdminRoute>
-              <Creatives />
-            </AdminRoute>
-          } />
-
-          <Route path="/logs" element={
-            <AdminRoute>
-              <Logs />
-            </AdminRoute>
-          } />
-
-          <Route path="/config" element={
-            <ProtectedRoute>
-              <Config />
-            </ProtectedRoute>
-          } />
-
-          <Route path="*" element={<Navigate to="/" />} />
-        </Routes>
-      </HashRouter>
+            {/* Admin Modules */}
+            <Route path="/financeiro" element={
+              <AdminRoute>
+                <Financial />
+              </AdminRoute>
+            } />
+            
+            <Route path="/equipe" element={
+              <AdminRoute>
+                <Team />
+              </AdminRoute>
+            } />
+            
+            <Route path="/kits" element={
+              <AdminRoute>
+                <Kits />
+              </AdminRoute>
+            } />
+            
+            <Route path="/criativos" element={
+              <AdminRoute>
+                <Creatives />
+              </AdminRoute>
+            } />
+            
+            <Route path="/logs" element={
+              <AdminRoute>
+                <Logs />
+              </AdminRoute>
+            } />
+            
+            <Route path="/config" element={
+              <ProtectedRoute>
+                <Config />
+              </ProtectedRoute>
+            } />
+            
+            <Route path="*" element={<Navigate to="/" />} />
+          </Routes>
+        </HashRouter>
+      </DataProvider>
     </AuthProvider>
   );
 };
