@@ -5,6 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:front": "vite",
+    "dev:back": "node backend/server.js",
+    "start": "concurrently \"npm run dev:back\" \"npm run dev:front\"",
     "build": "tsc && vite build",
     "preview": "vite preview"
   },
@@ -26,6 +29,7 @@
     "@types/react": "^18.3.27",
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
     "typescript": "^5.2.2",
     "vite": "^5.1.6"
   },
