@@ -195,6 +195,66 @@ router.delete('/criativos/:id', async (req, res) => {
   }
 });
 
+router.get('/gastos/midia', async (req, res) => {
+  if (!requireTenant(req, res)) return;
+  try {
+    const { rows } = await db.query(
+      'SELECT * FROM gastos_criativos WHERE cliente_id = $1 ORDER BY data DESC, id DESC',
+      [req.user.cliente_id]
+    );
+    res.json(rows);
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao listar gastos em mídia', details: error.message });
+  }
+});
+
+router.post('/gastos/midia', async (req, res) => {
+  if (!requireTenant(req, res)) return;
+  const { criativo_id, valor, data } = req.body;
+  try {
+    const { rows } = await db.query(
+      `INSERT INTO gastos_criativos (cliente_id, criativo_id, valor, data)
+       VALUES ($1, $2, $3, $4)
+       RETURNING *`,
+      [req.user.cliente_id, criativo_id, valor, data]
+    );
+    res.status(201).json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao criar gasto em mídia', details: error.message });
+  }
+});
+
+router.put('/gastos/midia/:id', async (req, res) => {
+  if (!requireTenant(req, res)) return;
+  const { fields, values } = buildUpdateSet(req.body, ['criativo_id', 'valor', 'data']);
+  if (fields.length === 0) return res.status(400).json({ message: 'Nenhum campo para atualizar.' });
+  try {
+    values.push(req.user.cliente_id);
+    values.push(req.params.id);
+    const { rows } = await db.query(
+      `UPDATE gastos_criativos SET ${fields.join(', ')}
+       WHERE cliente_id = $${values.length - 1} AND id = $${values.length}
+       RETURNING *`,
+      values
+    );
+    if (!rows[0]) return res.status(404).json({ message: 'Gasto em mídia não encontrado.' });
+    res.json(rows[0]);
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao atualizar gasto em mídia', details: error.message });
+  }
+});
+
+router.delete('/gastos/midia/:id', async (req, res) => {
+  if (!requireTenant(req, res)) return;
+  try {
+    const { rowCount } = await db.query('DELETE FROM gastos_criativos WHERE cliente_id = $1 AND id = $2', [req.user.cliente_id, req.params.id]);
+    if (!rowCount) return res.status(404).json({ message: 'Gasto em mídia não encontrado.' });
+    res.status(204).send();
+  } catch (error) {
+    res.status(500).json({ message: 'Erro ao deletar gasto em mídia', details: error.message });
+  }
+});
+
 router.get('/despesas', async (req, res) => {
   if (!requireTenant(req, res)) return;
   try {
