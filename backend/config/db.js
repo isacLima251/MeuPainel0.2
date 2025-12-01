@@ -1,15 +1,20 @@
-// Arquivo: backend/config/db.js (Substituir Código Completo)
+import pkg from 'pg';
 
-import pkg from 'pg'; // Se for MySQL, use o módulo mysql2 ou similar
 const { Pool } = pkg;
 
-// As credenciais devem ser carregadas de um arquivo .env para segurança!
+const requiredEnv = ['DB_USER', 'DB_HOST', 'DB_NAME'];
+const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+if (missingEnv.length) {
+  console.warn(`Variáveis de ambiente ausentes para o banco de dados: ${missingEnv.join(', ')}`);
+}
+
+const dbPassword = process.env.DB_PASSWORD;
 const pool = new Pool({
-  user: process.env.DB_USER, // Carregado via dotenv no server.js
+  user: process.env.DB_USER,
   host: process.env.DB_HOST,
   database: process.env.DB_NAME,
-  password: process.env.DB_PASSWORD,
-  port: process.env.DB_PORT,
+  password: dbPassword !== undefined ? String(dbPassword) : '',
+  port: process.env.DB_PORT ? Number(process.env.DB_PORT) : undefined,
 });
 
 pool
@@ -17,7 +22,6 @@ pool
   .then(() => console.log('Conexão bem-sucedida ao Banco de Dados!'))
   .catch((err) => console.error('Erro na conexão com o DB:', err));
 
-// Exportamos a função de query para ser usada nos controladores
 const db = {
   query: (text, params) => pool.query(text, params),
   getClient: () => pool.connect(),
