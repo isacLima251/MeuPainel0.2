@@ -12,7 +12,10 @@ export function authenticate(req, res, next) {
 
   try {
     const payload = jwt.verify(token, secret);
-    req.user = payload;
+    req.user = {
+      ...payload,
+      clientId: payload.cliente_id || payload.clientId || null,
+    };
     next();
   } catch (error) {
     return res.status(401).json({ message: 'Token inválido ou expirado' });
