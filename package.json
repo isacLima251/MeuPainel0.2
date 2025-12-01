@@ -7,8 +7,7 @@
     "dev": "vite",
     "dev:front": "vite",
     "dev:back": "node backend/server.js",
-    "start": "concurrently \"npm run dev:back\" \"npm run dev:front\"",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
