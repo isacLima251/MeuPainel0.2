@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Venda, Atendente, Kit, Criativo, Despesa, User, DashboardMetrics, Log, SaleStatus, DiscountType, CreativeExpense, Client } from '../types';
-import { mockAtendentes, mockKits, mockCriativos, mockUsers, mockVendasInitial, mockDespesas, mockCreativeExpenses, mockLogs, mockClients } from '../services/mockData';
+import { useAuth } from '../App';
+
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 interface DataContextType {
   sales: Venda[];
@@ -13,28 +15,28 @@ interface DataContextType {
   clients: Client[];
   logs: Log[];
   getMetrics: (atendenteId?: string, startDate?: Date, endDate?: Date) => DashboardMetrics;
-  addSale: (sale: Venda) => void;
-  updateSale: (id: string, updates: Partial<Venda>, modifiedBy: string) => void;
-  addDespesa: (despesa: Despesa) => void;
-  updateDespesa: (id: string, updates: Partial<Despesa>) => void;
-  deleteDespesa: (id: string) => void;
+  addSale: (sale: Venda) => Promise<void>;
+  updateSale: (id: string, updates: Partial<Venda>, modifiedBy: string) => Promise<void>;
+  addDespesa: (despesa: Despesa) => Promise<void>;
+  updateDespesa: (id: string, updates: Partial<Despesa>) => Promise<void>;
+  deleteDespesa: (id: string) => Promise<void>;
   // Updated Signature for unified creation
-  addAtendente: (atendenteData: Omit<Atendente, 'id' | 'userId' | 'clientId'>, loginData: {email: string, password: string}, clientId: string) => void;
-  updateAtendente: (id: string, updates: Partial<Atendente>) => void;
-  deleteAtendente: (id: string) => void;
-  toggleAtendenteStatus: (id: string) => void;
-  addKit: (kit: Kit) => void;
-  updateKit: (id: string, updates: Partial<Kit>) => void;
-  deleteKit: (id: string) => void;
-  addCriativo: (criativo: Criativo) => void;
-  updateCriativo: (id: string, updates: Partial<Criativo>) => void;
-  deleteCriativo: (id: string) => void;
-  addCreativeExpense: (expense: CreativeExpense) => void;
-  deleteCreativeExpense: (id: string) => void;
+  addAtendente: (atendenteData: Omit<Atendente, 'id' | 'userId' | 'clientId'>, loginData: {email: string, password: string}, clientId: string) => Promise<void>;
+  updateAtendente: (id: string, updates: Partial<Atendente>) => Promise<void>;
+  deleteAtendente: (id: string) => Promise<void>;
+  toggleAtendenteStatus: (id: string) => Promise<void>;
+  addKit: (kit: Kit) => Promise<void>;
+  updateKit: (id: string, updates: Partial<Kit>) => Promise<void>;
+  deleteKit: (id: string) => Promise<void>;
+  addCriativo: (criativo: Criativo) => Promise<void>;
+  updateCriativo: (id: string, updates: Partial<Criativo>) => Promise<void>;
+  deleteCriativo: (id: string) => Promise<void>;
+  addCreativeExpense: (expense: CreativeExpense) => Promise<void>;
+  deleteCreativeExpense: (id: string) => Promise<void>;
   // Client Management
-  addClient: (client: Client) => void;
-  updateClient: (id: string, updates: Partial<Client>) => void;
-  toggleClientStatus: (id: string) => void; // New function
+  addClient: (client: Client, admin?: { name?: string; email?: string; password?: string }) => Promise<void>;
+  updateClient: (id: string, updates: Partial<Client>) => Promise<void>;
+  toggleClientStatus: (id: string) => Promise<void>; // New function
   processBraipWebhook: (payload: any) => { success: boolean, message: string }; 
   isLoading: boolean;
 }
@@ -50,19 +52,21 @@ export const useData = () => {
 };
 
 export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { token, user: authUser } = useAuth();
+
   // Initialize transactional data
-  const [sales, setSales] = useState<Venda[]>(mockVendasInitial);
-  const [logs, setLogs] = useState<Log[]>(mockLogs);
-  const [creativeExpenses, setCreativeExpenses] = useState<CreativeExpense[]>(mockCreativeExpenses);
-  const [despesas, setDespesas] = useState<Despesa[]>(mockDespesas);
-  
+  const [sales, setSales] = useState<Venda[]>([]);
+  const [logs, setLogs] = useState<Log[]>([]);
+  const [creativeExpenses, setCreativeExpenses] = useState<CreativeExpense[]>([]);
+  const [despesas, setDespesas] = useState<Despesa[]>([]);
+
   // Initialize configuration data
-  const [atendentes, setAtendentes] = useState<Atendente[]>(mockAtendentes);
-  const [kits, setKits] = useState<Kit[]>(mockKits);
-  const [criativos, setCriativos] = useState<Criativo[]>(mockCriativos);
-  const [users, setUsers] = useState<User[]>(mockUsers);
-  const [clients, setClients] = useState<Client[]>(mockClients);
-  
+  const [atendentes, setAtendentes] = useState<Atendente[]>([]);
+  const [kits, setKits] = useState<Kit[]>([]);
+  const [criativos, setCriativos] = useState<Criativo[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+
   const [isLoading, setIsLoading] = useState(false);
 
   // --- Helper: Add Log ---
@@ -77,6 +81,123 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // In production: await api.post('/logs', newLog);
       setLogs(prev => [newLog, ...prev]);
   };
+
+  const authHeaders = token
+    ? {
+        Authorization: `Bearer ${token}`,
+      }
+    : {};
+
+  const apiFetch = async (path: string, options: RequestInit = {}) => {
+    const response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...authHeaders,
+        ...(options.headers || {}),
+      },
+    });
+
+    if (!response.ok) {
+      const message = await response.text();
+      throw new Error(message || `Falha ao chamar ${path}`);
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    }
+    return null;
+  };
+
+  const mapAtendente = (row: any): Atendente => ({
+    id: row.id?.toString(),
+    userId: row.user_id?.toString() || '',
+    clientId: row.cliente_id?.toString() || '',
+    nome: row.nome,
+    codigo: row.codigo,
+    telefone: row.telefone,
+    salarioMensal: Number(row.salario_mensal) || 0,
+    ativo: row.ativo !== false,
+    comissoesPersonalizadas: row.comissoes_personalizadas || [],
+    metaMensal: row.meta_mensal,
+    criativosAutorizados: row.criativos_autorizados,
+  });
+
+  const mapKit = (row: any): Kit => ({
+    id: row.id?.toString(),
+    clientId: row.cliente_id?.toString(),
+    nome: row.nome,
+    codigoBraip: row.codigo_braip,
+    comissaoFixa: Number(row.comissao_fixa) || 0,
+    comissaoPercentual: Number(row.comissao_percentual) || 0,
+    ativo: row.ativo !== false,
+  });
+
+  const mapCriativo = (row: any): Criativo => ({
+    id: row.id?.toString(),
+    clientId: row.cliente_id?.toString(),
+    nome: row.nome,
+    campanha: row.campanha,
+    status: row.status,
+  });
+
+  const mapDespesa = (row: any): Despesa => ({
+    id: row.id?.toString(),
+    clientId: row.cliente_id?.toString(),
+    descricao: row.descricao,
+    valor: Number(row.valor) || 0,
+    categoria: row.categoria,
+    data: row.data,
+  });
+
+  const mapCreativeExpense = (row: any): CreativeExpense => ({
+    id: row.id?.toString(),
+    clientId: row.cliente_id?.toString(),
+    criativoId: row.criativo_id?.toString(),
+    valor: Number(row.valor) || 0,
+    data: row.data,
+  });
+
+  const mapClient = (row: any): Client => ({
+    id: row.id?.toString(),
+    name: row.name,
+    documento: row.documento,
+    plan: row.plan,
+    active: row.active !== false,
+    createdAt: row.createdAt || row.created_at,
+  });
+
+  useEffect(() => {
+    if (!token) return;
+
+    const loadData = async () => {
+      setIsLoading(true);
+      try {
+        const [attData, kitData, criativoData, despesaData, gastosData, clientData] = await Promise.all([
+          apiFetch('/atendentes').catch(() => []),
+          apiFetch('/kits').catch(() => []),
+          apiFetch('/criativos').catch(() => []),
+          apiFetch('/despesas').catch(() => []),
+          apiFetch('/gastos/midia').catch(() => []),
+          authUser?.role === 'super_admin' ? apiFetch('/clientes').catch(() => []) : Promise.resolve([]),
+        ]);
+
+        setAtendentes(Array.isArray(attData) ? attData.map(mapAtendente) : []);
+        setKits(Array.isArray(kitData) ? kitData.map(mapKit) : []);
+        setCriativos(Array.isArray(criativoData) ? criativoData.map(mapCriativo) : []);
+        setDespesas(Array.isArray(despesaData) ? despesaData.map(mapDespesa) : []);
+        setCreativeExpenses(Array.isArray(gastosData) ? gastosData.map(mapCreativeExpense) : []);
+        setClients(Array.isArray(clientData) ? clientData.map(mapClient) : []);
+      } catch (error) {
+        console.error('Erro ao carregar dados iniciais', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadData();
+  }, [token, authUser?.role]);
 
   const calculateCommission = (sale: Venda, kit: Kit): number => {
       if (sale.status !== 'PAGO') return 0;
@@ -266,14 +387,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   };
 
-  const addSale = (sale: Venda) => {
-    // In production: await api.post('/sales', sale);
+  const addSale = async (sale: Venda) => {
     setSales(prev => [sale, ...prev]);
     addLog('Sistema/Webhook', 'Criação', 'Venda importada via Postback');
   };
 
-  const updateSale = (id: string, updates: Partial<Venda>, modifiedBy: string) => {
-    // In production: await api.put(`/sales/${id}`, updates);
+  const updateSale = async (id: string, updates: Partial<Venda>, modifiedBy: string) => {
+    await apiFetch(`/vendas/${id}`, { method: 'PUT', body: JSON.stringify({
+      status: updates.status,
+      observacoes: updates.observacoes,
+      atendente_id: updates.atendenteId,
+      criativo_id: updates.criativoId,
+      valor: updates.valor,
+      data_pagamento: updates.dataPagamento,
+    }) });
+
     setSales(prev => prev.map(s => {
       if (s.id !== id) return s;
 
@@ -391,20 +519,31 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addDespesa = (despesa: Despesa) => {
-      // In production: await api.post('/expenses', despesa);
-      setDespesas(prev => [despesa, ...prev]);
+  const addDespesa = async (despesa: Despesa) => {
+      const response = await apiFetch('/despesas', { method: 'POST', body: JSON.stringify({
+        descricao: despesa.descricao,
+        valor: despesa.valor,
+        categoria: despesa.categoria,
+        data: despesa.data,
+      })});
+      setDespesas(prev => [mapDespesa(response), ...prev]);
       addLog('Admin', 'Criação', `Nova despesa: ${despesa.descricao} (R$ ${despesa.valor})`);
   };
 
-  const updateDespesa = (id: string, updates: Partial<Despesa>) => {
-    // In production: await api.put(`/expenses/${id}`, updates);
+  const updateDespesa = async (id: string, updates: Partial<Despesa>) => {
+    const payload = {
+      descricao: updates.descricao,
+      valor: updates.valor,
+      categoria: updates.categoria,
+      data: updates.data,
+    };
+    await apiFetch(`/despesas/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     setDespesas(prev => prev.map(d => d.id === id ? { ...d, ...updates } : d));
     addLog('Admin', 'Edição', `Despesa atualizada: ${id}`);
   };
 
-  const deleteDespesa = (id: string) => {
-      // In production: await api.delete(`/expenses/${id}`);
+  const deleteDespesa = async (id: string) => {
+      await apiFetch(`/despesas/${id}`, { method: 'DELETE' });
       const toDelete = despesas.find(d => d.id === id);
       if (toDelete) {
           addLog('Admin', 'Exclusão', `Despesa removida: ${toDelete.descricao}`);
@@ -413,39 +552,37 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   // UNIFIED CREATION: Creates Atendente AND User
-  const addAtendente = (atendenteData: Omit<Atendente, 'id' | 'userId' | 'clientId'>, loginData: {email: string, password: string}, clientId: string) => {
-    const userId = `u-${Date.now()}`;
-    const atendenteId = `att-${Date.now()}`;
-
-    // 1. Create User Login
-    const newUser: User = {
-        id: userId,
-        name: atendenteData.nome,
-        email: loginData.email,
-        role: 'atendente',
-        clientId: clientId
+  const addAtendente = async (atendenteData: Omit<Atendente, 'id' | 'userId' | 'clientId'>, _loginData: {email: string, password: string}, clientId: string) => {
+    const payload = {
+      client_id: clientId,
+      nome: atendenteData.nome,
+      codigo: atendenteData.codigo,
+      telefone: atendenteData.telefone,
+      salario_mensal: atendenteData.salarioMensal,
+      ativo: atendenteData.ativo,
     };
 
-    // 2. Create Atendente Record
-    const newAtendente: Atendente = {
-        id: atendenteId,
-        userId: userId,
-        clientId: clientId,
-        ...atendenteData
-    };
-
-    setUsers(prev => [...prev, newUser]);
-    setAtendentes(prev => [...prev, newAtendente]);
-
-    addLog('Admin', 'Criação', `Atendente e Login criado: ${atendenteData.nome} (${loginData.email})`);
+    const response = await apiFetch('/atendentes', { method: 'POST', body: JSON.stringify(payload) });
+    const created = mapAtendente(response);
+    setAtendentes(prev => [created, ...prev]);
+    addLog('Admin', 'Criação', `Atendente criado: ${atendenteData.nome}`);
   };
 
-  const updateAtendente = (id: string, updates: Partial<Atendente>) => {
+  const updateAtendente = async (id: string, updates: Partial<Atendente>) => {
+    const payload = {
+      nome: updates.nome,
+      codigo: updates.codigo,
+      telefone: updates.telefone,
+      salario_mensal: updates.salarioMensal,
+      ativo: updates.ativo,
+    };
+    await apiFetch(`/atendentes/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     setAtendentes(prev => prev.map(a => a.id === id ? { ...a, ...updates } : a));
     addLog('Admin', 'Edição', `Atendente atualizado: ${id}`);
   };
 
-  const deleteAtendente = (id: string) => {
+  const deleteAtendente = async (id: string) => {
+    await apiFetch(`/atendentes/${id}`, { method: 'DELETE' });
     const atendente = atendentes.find(a => a.id === id);
     if(atendente) {
         addLog('Admin', 'Exclusão', `Atendente removido: ${atendente.nome}`);
@@ -454,21 +591,40 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const toggleAtendenteStatus = (id: string) => {
-      setAtendentes(prev => prev.map(a => a.id === id ? { ...a, ativo: !a.ativo } : a));
+  const toggleAtendenteStatus = async (id: string) => {
+      const current = atendentes.find(a => a.id === id);
+      const nextStatus = !current?.ativo;
+      await updateAtendente(id, { ativo: nextStatus });
   };
 
-  const addKit = (kit: Kit) => {
-    setKits(prev => [...prev, kit]);
+  const addKit = async (kit: Kit) => {
+    const payload = {
+      nome: kit.nome,
+      codigo_braip: kit.codigoBraip,
+      comissao_fixa: kit.comissaoFixa,
+      comissao_percentual: kit.comissaoPercentual,
+      ativo: kit.ativo ?? true,
+    };
+    const response = await apiFetch('/kits', { method: 'POST', body: JSON.stringify(payload) });
+    setKits(prev => [mapKit(response), ...prev]);
     addLog('Admin', 'Criação', `Kit adicionado: ${kit.nome}`);
   };
 
-  const updateKit = (id: string, updates: Partial<Kit>) => {
+  const updateKit = async (id: string, updates: Partial<Kit>) => {
+    const payload = {
+      nome: updates.nome,
+      codigo_braip: updates.codigoBraip,
+      comissao_fixa: updates.comissaoFixa,
+      comissao_percentual: updates.comissaoPercentual,
+      ativo: updates.ativo,
+    };
+    await apiFetch(`/kits/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     setKits(prev => prev.map(k => k.id === id ? { ...k, ...updates } : k));
     addLog('Admin', 'Edição', `Kit atualizado: ${id}`);
   };
 
-  const deleteKit = (id: string) => {
+  const deleteKit = async (id: string) => {
+    await apiFetch(`/kits/${id}`, { method: 'DELETE' });
     const kit = kits.find(k => k.id === id);
     if (kit) {
         addLog('Admin', 'Exclusão', `Kit removido: ${kit.nome}`);
@@ -476,17 +632,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addCriativo = (criativo: Criativo) => {
-    setCriativos(prev => [...prev, criativo]);
+  const addCriativo = async (criativo: Criativo) => {
+    const payload = { nome: criativo.nome, campanha: criativo.campanha, status: criativo.status };
+    const response = await apiFetch('/criativos', { method: 'POST', body: JSON.stringify(payload) });
+    setCriativos(prev => [mapCriativo(response), ...prev]);
     addLog('Admin', 'Criação', `Criativo adicionado: ${criativo.nome}`);
   };
 
-  const updateCriativo = (id: string, updates: Partial<Criativo>) => {
+  const updateCriativo = async (id: string, updates: Partial<Criativo>) => {
+    const payload = { nome: updates.nome, campanha: updates.campanha, status: updates.status };
+    await apiFetch(`/criativos/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
     setCriativos(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
     addLog('Admin', 'Edição', `Criativo atualizado: ${id}`);
   };
 
-  const deleteCriativo = (id: string) => {
+  const deleteCriativo = async (id: string) => {
+    await apiFetch(`/criativos/${id}`, { method: 'DELETE' });
     const criativo = criativos.find(c => c.id === id);
     if(criativo) {
         addLog('Admin', 'Exclusão', `Criativo removido: ${criativo.nome}`);
@@ -494,39 +655,54 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const addCreativeExpense = (expense: CreativeExpense) => {
-    setCreativeExpenses(prev => [...prev, expense]);
+  const addCreativeExpense = async (expense: CreativeExpense) => {
+    const payload = { criativo_id: expense.criativoId, valor: expense.valor, data: expense.data };
+    const response = await apiFetch('/gastos/midia', { method: 'POST', body: JSON.stringify(payload) });
+    setCreativeExpenses(prev => [mapCreativeExpense(response), ...prev]);
     addLog('Admin', 'Custo', `Investimento lançado em criativo: R$ ${expense.valor}`);
   };
 
-  const deleteCreativeExpense = (id: string) => {
-      const expense = creativeExpenses.find(e => e.id === id);
-      if (expense) {
-        addLog('Admin', 'Exclusão', `Investimento removido de criativo: R$ ${expense.valor}`);
-        setCreativeExpenses(prev => prev.filter(e => e.id !== id));
-      }
+  const deleteCreativeExpense = async (id: string) => {
+    await apiFetch(`/gastos/midia/${id}`, { method: 'DELETE' });
+    setCreativeExpenses(prev => prev.filter(e => e.id !== id));
+    addLog('Admin', 'Exclusão', `Investimento removido`);
   };
 
   // --- CLIENTS MANAGEMENT ---
-  const addClient = (client: Client) => {
-      setClients(prev => [...prev, client]);
-      addLog('Super Admin', 'Criação', `Novo Cliente SaaS: ${client.name}`);
+  const addClient = async (client: Client, admin?: { name?: string; email?: string; password?: string }) => {
+      const response = await apiFetch('/clientes', {
+        method: 'POST',
+        body: JSON.stringify({
+          name: client.name,
+          documento: client.documento,
+          plan: client.plan,
+          active: client.active,
+          admin,
+        })
+      });
+      if (response?.client) {
+        setClients(prev => [mapClient(response.client), ...prev]);
+        addLog('Super Admin', 'Criação', `Novo Cliente SaaS: ${client.name}`);
+      }
   };
 
-  const updateClient = (id: string, updates: Partial<Client>) => {
-      setClients(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
-      addLog('Super Admin', 'Edição', `Cliente atualizado: ${id}`);
+  const updateClient = async (id: string, updates: Partial<Client>) => {
+      const response = await apiFetch(`/clientes/${id}`, { method: 'PUT', body: JSON.stringify({
+        name: updates.name,
+        documento: updates.documento,
+        plan: updates.plan,
+        active: updates.active,
+      }) });
+      if (response) {
+        setClients(prev => prev.map(c => c.id === id ? mapClient(response) : c));
+        addLog('Super Admin', 'Edição', `Cliente atualizado: ${id}`);
+      }
   };
 
-  const toggleClientStatus = (id: string) => {
-      setClients(prev => prev.map(c => {
-          if (c.id === id) {
-              const newStatus = !c.active;
-              addLog('Super Admin', 'Alteração Status', `Cliente ${c.name} agora está ${newStatus ? 'ATIVO' : 'INATIVO'}`);
-              return { ...c, active: newStatus };
-          }
-          return c;
-      }));
+  const toggleClientStatus = async (id: string) => {
+      const current = clients.find(c => c.id === id);
+      const newStatus = !current?.active;
+      await updateClient(id, { active: newStatus });
   };
 
   return (

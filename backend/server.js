@@ -8,6 +8,7 @@ import dashboardRoutes from './routes/dashboard.js';
 import resourceRoutes from './routes/resources.js';
 import webhookRoutes from './routes/webhook.js';
 import vendasRoutes from './routes/vendas.js';
+import clientesRoutes from './routes/clientes.js';
 import { authenticate } from './middleware/auth.js';
 
 const app = express();
@@ -37,6 +38,7 @@ app.use(authenticate);
 app.use('/dashboard', dashboardRoutes);
 app.use('/', resourceRoutes);
 app.use('/vendas', vendasRoutes);
+app.use('/clientes', clientesRoutes);
 
 app.listen(PORT, () => {
   console.log(`Servidor rodando na porta ${PORT}`);
