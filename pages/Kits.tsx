@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Package, Plus, Save, X, Edit2, CheckCircle, Trash2 } from 'lucide-react';
+import { Package, Plus, X, Edit2, Trash2 } from 'lucide-react';
 import { Kit } from '../types';
 
 export const Kits: React.FC = () => {

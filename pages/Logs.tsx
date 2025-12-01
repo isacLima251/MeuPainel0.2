@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { ClipboardList, Search, User, Clock, AlertCircle } from 'lucide-react';
+import { Search, Clock } from 'lucide-react';
 
 export const Logs: React.FC = () => {
   const { logs } = useData();
