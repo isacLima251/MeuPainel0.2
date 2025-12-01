@@ -1,6 +1,12 @@
 export type UserRole = 'super_admin' | 'admin' | 'atendente';
 
-export type SaleStatus = 'AGENDADO' | 'AGUARDANDO_PAGAMENTO' | 'PAGO' | 'FRUSTRADO';
+export type SaleStatus =
+  | 'AGENDADO'
+  | 'AGUARDANDO_PAGAMENTO'
+  | 'PAGAMENTO_ATRASADO'
+  | 'PAGO'
+  | 'FRUSTRADO'
+  | 'CANCELADA';
 
 export type DiscountType = 'proporcional' | 'zerar' | 'nao_afeta';
 
@@ -11,6 +17,15 @@ export interface Client {
   plan: 'trial' | 'pro' | 'enterprise';
   active: boolean;
   createdAt: string;
+  statusAssinatura?: 'trial' | 'ativo' | 'inadimplente' | 'cancelado';
+  valorMensal?: number;
+}
+
+export interface Tenant {
+  id: string;
+  nomeEmpresa: string;
+  statusAssinatura: 'trial' | 'ativo' | 'inadimplente' | 'cancelado';
+  valorMensal: number;
 }
 
 export interface User {
@@ -45,6 +60,16 @@ export interface Atendente {
   criativosAutorizados?: string[]; // IDs of Creatives this attendant is allowed to sell
 }
 
+export interface AtendenteMeta {
+  id: string;
+  clientId: string;
+  atendenteId: string;
+  mes: number;
+  ano: number;
+  metaVendas: number;
+  metaValor: number;
+}
+
 export interface Kit {
   id: string;
   clientId?: string;
@@ -61,6 +86,12 @@ export interface Criativo {
   nome: string; // e.g., VID30_DOR
   campanha: string;
   status: 'teste' | 'aprovado' | 'ruim';
+}
+
+export interface AtendenteCriativo {
+  atendenteId: string;
+  criativoId: string;
+  clientId: string;
 }
 
 export interface CreativeExpense {
@@ -128,14 +159,18 @@ export interface DashboardMetrics {
   // Counts
   countAgendado: number;
   countAguardando: number;
+  countPagamentoAtrasado: number;
   countPago: number;
   countFrustrado: number;
+  countCancelada: number;
 
   // Monetary Values per Status (New)
   valorAgendado: number;
   valorAguardando: number;
+  valorPagamentoAtrasado: number;
   valorPago: number;
   valorFrustrado: number;
+  valorCancelada: number;
 
   projecaoMaxima: number; // Comissoes (Pagas + Pendentes)
   projecaoRealista: number;

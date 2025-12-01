@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Plus, Building2, CheckCircle, XCircle, Edit2, CreditCard, Users, TrendingUp } from 'lucide-react';
+import { Plus, Building2, XCircle, Edit2, CreditCard, Users } from 'lucide-react';
 import { Client } from '../types';
 
 const PLAN_PRICES: Record<string, number> = {

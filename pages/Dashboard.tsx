@@ -4,9 +4,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from 'recharts';
-import { 
-  TrendingUp, TrendingDown, Users, Activity, Target, ArrowUpRight, ArrowDownRight, 
-  Wallet, CheckCircle, XCircle, AlertOctagon, Calendar, Clock, User, Trophy, Percent, Star, DollarSign
+import {
+  TrendingUp, TrendingDown, Activity, Target, ArrowUpRight, ArrowDownRight,
+  Wallet, CheckCircle, XCircle, AlertOctagon, Calendar, Clock, Trophy, Percent, DollarSign
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../App';
@@ -222,7 +222,7 @@ export const Dashboard: React.FC = () => {
   const chartData = getChartData();
 
   // Calculate Frustration Rate for Card
-  const totalSalesPeriod = metrics.countAgendado + metrics.countAguardando + metrics.countPago + metrics.countFrustrado;
+  const totalSalesPeriod = metrics.countAgendado + metrics.countAguardando + metrics.countPagamentoAtrasado + metrics.countPago + metrics.countFrustrado;
   const frustrationRate = totalSalesPeriod > 0 ? (metrics.countFrustrado / totalSalesPeriod) * 100 : 0;
 
   if (isLoading) {
@@ -233,6 +233,7 @@ export const Dashboard: React.FC = () => {
     { name: 'Pago', value: metrics.countPago, color: '#22c55e' },
     { name: 'Agendado', value: metrics.countAgendado, color: '#3b82f6' },
     { name: 'Aguardando', value: metrics.countAguardando, color: '#eab308' },
+    { name: 'Pag. atrasado', value: metrics.countPagamentoAtrasado, color: '#f97316' },
     { name: 'Frustrado', value: metrics.countFrustrado, color: '#ef4444' },
   ];
 

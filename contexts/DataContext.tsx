@@ -1,6 +1,20 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Venda, Atendente, Kit, Criativo, Despesa, User, DashboardMetrics, Log, SaleStatus, DiscountType, CreativeExpense, Client } from '../types';
+import React, { createContext, useContext, useState } from 'react';
+import { Venda, Atendente, Kit, Criativo, Despesa, User, DashboardMetrics, Log, SaleStatus, CreativeExpense, Client } from '../types';
 import { mockAtendentes, mockKits, mockCriativos, mockUsers, mockVendasInitial, mockDespesas, mockCreativeExpenses, mockLogs, mockClients } from '../services/mockData';
+
+const BRAIP_STATUS_MAP: Record<string, SaleStatus> = {
+  '1': 'AGUARDANDO_PAGAMENTO',
+  '2': 'PAGO',
+  '3': 'CANCELADA',
+  '10': 'PAGAMENTO_ATRASADO',
+  '11': 'AGENDADO',
+  '12': 'FRUSTRADO'
+};
+
+const normalizeStatus = (status: string | number): SaleStatus => {
+  const mapped = BRAIP_STATUS_MAP[String(status)];
+  return mapped || (status as SaleStatus);
+};
 
 interface DataContextType {
   sales: Venda[];
@@ -63,7 +77,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [users, setUsers] = useState<User[]>(mockUsers);
   const [clients, setClients] = useState<Client[]>(mockClients);
   
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading] = useState(false);
 
   // --- Helper: Add Log ---
   const addLog = (usuarioNome: string, acao: string, detalhes: string) => {
@@ -113,7 +127,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getMetrics = (atendenteId?: string, startDate?: Date, endDate?: Date): DashboardMetrics => {
-    let relevantSales = sales;
+    const cancelledSales = sales.filter(s => s.status === 'CANCELADA');
+    let relevantSales = sales.filter(s => s.status !== 'CANCELADA');
     let relevantExpenses = creativeExpenses;
     let relevantDespesas = despesas;
     let currentAttendantSalary = 0;
@@ -152,16 +167,21 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const frustrados = relevantSales.filter(s => s.status === 'FRUSTRADO');
     const agendados = relevantSales.filter(s => s.status === 'AGENDADO');
     const aguardando = relevantSales.filter(s => s.status === 'AGUARDANDO_PAGAMENTO');
+    const atrasados = relevantSales.filter(s => s.status === 'PAGAMENTO_ATRASADO');
 
     const countPago = pagos.length;
     const countFrustrado = frustrados.length;
     const countAgendado = agendados.length;
     const countAguardando = aguardando.length;
+    const countPagamentoAtrasado = atrasados.length;
+    const countCancelada = cancelledSales.length;
 
     const valorPago = pagos.reduce((acc, curr) => acc + curr.valor, 0);
     const valorFrustrado = frustrados.reduce((acc, curr) => acc + curr.valor, 0);
     const valorAgendado = agendados.reduce((acc, curr) => acc + curr.valor, 0);
     const valorAguardando = aguardando.reduce((acc, curr) => acc + curr.valor, 0);
+    const valorPagamentoAtrasado = atrasados.reduce((acc, curr) => acc + curr.valor, 0);
+    const valorCancelada = cancelledSales.reduce((acc, curr) => acc + curr.valor, 0);
 
     const totalFaturamento = valorPago;
     const totalComissoes = pagos.reduce((acc, curr) => acc + curr.comissaoGerada, 0);
@@ -211,9 +231,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Calculates potential commission from pending sales
     const projecaoMaxima = relevantSales.reduce((acc, s) => {
-        if (s.status === 'PAGO') return acc + s.comissaoGerada; 
-        
-        if (s.status === 'AGENDADO' || s.status === 'AGUARDANDO_PAGAMENTO') {
+        if (s.status === 'PAGO') return acc + s.comissaoGerada;
+
+        if (s.status === 'AGENDADO' || s.status === 'AGUARDANDO_PAGAMENTO' || s.status === 'PAGAMENTO_ATRASADO') {
             const kit = kits.find(k => k.id === s.kitId);
             if (!kit) return acc;
             
@@ -246,12 +266,16 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       roas,
       countAgendado,
       countAguardando,
+      countPagamentoAtrasado,
       countPago,
       countFrustrado,
+      countCancelada,
       valorAgendado,
       valorAguardando,
+      valorPagamentoAtrasado,
       valorPago,
       valorFrustrado,
+      valorCancelada,
       projecaoMaxima,
       projecaoRealista,
       projecaoGanhosTotal,
@@ -284,6 +308,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updatedSale.dataPagamento = new Date().toISOString();
       }
 
+      if (updatedSale.status === 'CANCELADA') {
+          updatedSale.comissaoGerada = 0;
+          updatedSale.dataPagamento = undefined;
+      }
+
       if (s.semIdentificacao && updatedSale.atendenteId && updatedSale.criativoId) {
           updatedSale.semIdentificacao = false;
       }
@@ -297,6 +326,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const processBraipWebhook = (payload: any): { success: boolean, message: string } => {
     const { order_id, status, product, value, customer, utm_campaign, utm_content, utm_atendente } = payload;
+    const normalizedStatus = normalizeStatus(status);
     
     // Safety check for empty configuration
     if (kits.length === 0) {
@@ -326,10 +356,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (existingSale) {
         updateSale(existingSale.id, {
-            status: status,
+            status: normalizedStatus,
             valor: value
         }, 'Webhook/Braip');
-        return { success: true, message: `Venda ${order_id} atualizada para ${status}` };
+        return { success: true, message: `Venda ${order_id} atualizada para ${normalizedStatus}` };
     } else {
         const newSale: Venda = {
             id: `v-braip-${Date.now()}`,
@@ -341,7 +371,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             atendenteId: atendente?.id,
             criativoId: criativo?.id,
             kitId: kit.id,
-            status: status,
+            status: normalizedStatus,
             dataAgendamento: new Date().toISOString(),
             valor: value,
             comissaoGerada: 0,
@@ -359,7 +389,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }]
         };
 
-        if (status === 'PAGO') {
+        if (normalizedStatus === 'PAGO') {
             newSale.comissaoGerada = calculateCommission(newSale, kit);
             newSale.dataPagamento = new Date().toISOString();
         }

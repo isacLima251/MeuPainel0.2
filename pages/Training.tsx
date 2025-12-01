@@ -1,5 +1,5 @@
 import React from 'react';
-import { PlayCircle, FileText, CheckCircle, Lock } from 'lucide-react';
+import { PlayCircle, FileText, Lock } from 'lucide-react';
 
 const ModuleCard = ({ title, duration, lessons, active }: any) => (
     <div className={`p-5 rounded-xl border transition-all cursor-pointer group ${active ? 'bg-blue-50 border-blue-200 ring-1 ring-blue-300' : 'bg-white border-slate-200 hover:border-blue-300'}`}>
