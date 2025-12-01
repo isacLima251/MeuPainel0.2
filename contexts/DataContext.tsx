@@ -127,15 +127,17 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const getMetrics = (atendenteId?: string, startDate?: Date, endDate?: Date): DashboardMetrics => {
-    const cancelledSales = sales.filter(s => s.status === 'CANCELADA');
-    let relevantSales = sales.filter(s => s.status !== 'CANCELADA');
+    const nonCancelledSales = sales.filter(s => s.status !== 'CANCELADA');
+    let cancelledSales = sales.filter(s => s.status === 'CANCELADA');
+    let relevantSales = nonCancelledSales;
     let relevantExpenses = creativeExpenses;
     let relevantDespesas = despesas;
     let currentAttendantSalary = 0;
 
     // Filter by Specific Attendant
     if (atendenteId && atendenteId !== 'all') {
-        relevantSales = sales.filter(s => s.atendenteId === atendenteId);
+        relevantSales = nonCancelledSales.filter(s => s.atendenteId === atendenteId);
+        cancelledSales = cancelledSales.filter(s => s.atendenteId === atendenteId);
         const att = atendentes.find(a => a.id === atendenteId);
         if (att) currentAttendantSalary = att.salarioMensal;
     }
@@ -145,10 +147,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const adjustedEndDate = new Date(endDate);
         adjustedEndDate.setHours(23, 59, 59, 999);
 
-        relevantSales = relevantSales.filter(s => {
-            const saleDate = new Date(s.dataAgendamento);
+        const withinRange = (date: string) => {
+            const saleDate = new Date(date);
             return saleDate >= startDate && saleDate <= adjustedEndDate;
-        });
+        };
+
+        relevantSales = relevantSales.filter(s => withinRange(s.dataAgendamento));
+        cancelledSales = cancelledSales.filter(s => withinRange(s.dataAgendamento));
 
         // Only filter expenses if viewing global metrics or irrelevant to attendant view logic
         if (!atendenteId || atendenteId === 'all') {
