@@ -81,6 +81,19 @@ const SuperAdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) 
     return <Layout>{children}</Layout>;
 };
 
+// --- Home Dispatcher (Redirect Logic) ---
+const HomeDispatcher: React.FC = () => {
+  const { user } = useAuth();
+  
+  // If Super Admin, redirect to SaaS Dashboard (Clients)
+  if (user?.role === 'super_admin') {
+    return <Navigate to="/clientes" replace />;
+  }
+  
+  // Otherwise, show standard Operational Dashboard
+  return <Dashboard />;
+};
+
 // --- Main App ---
 const App: React.FC = () => {
   return (
@@ -90,9 +103,10 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/login" element={<Login />} />
             
+            {/* Root Route with Dispatcher */}
             <Route path="/" element={
               <ProtectedRoute>
-                <Dashboard />
+                <HomeDispatcher />
               </ProtectedRoute>
             } />
             

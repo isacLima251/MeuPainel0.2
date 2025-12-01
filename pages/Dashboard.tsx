@@ -4,9 +4,9 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart, Pie, Cell
 } from 'recharts';
-import {
-  TrendingUp, TrendingDown, Activity, Target, ArrowUpRight, ArrowDownRight,
-  Wallet, CheckCircle, XCircle, AlertOctagon, Calendar, Clock, Trophy, Percent, DollarSign
+import { 
+  TrendingUp, TrendingDown, Users, Activity, Target, ArrowUpRight, ArrowDownRight, 
+  Wallet, CheckCircle, XCircle, AlertOctagon, Calendar, Clock, User, Trophy, Percent, Star, DollarSign, AlertCircle
 } from 'lucide-react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../App';
@@ -137,6 +137,14 @@ export const Dashboard: React.FC = () => {
     setPortalTarget(document.getElementById('header-actions'));
   }, []);
 
+  // Helper to get local date string YYYY-MM-DD
+  const getLocalDateString = (date: Date) => {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  };
+
   // Update dates when filter type changes
   useEffect(() => {
       const now = new Date();
@@ -152,28 +160,31 @@ export const Dashboard: React.FC = () => {
 
       switch(filterType) {
           case 'today':
-              start = new Date(now.setHours(0,0,0,0));
-              end = new Date(now.setHours(23,59,59,999));
+              // Start and End are Today
+              start = new Date();
+              end = new Date();
               break;
           case 'yesterday':
+              start = new Date();
               start.setDate(start.getDate() - 1);
-              start.setHours(0,0,0,0);
+              end = new Date();
               end.setDate(end.getDate() - 1);
-              end.setHours(23,59,59,999);
               break;
           case 'month':
+              // Start is 1st day, End is LAST day of month (covers full month)
               start = new Date(now.getFullYear(), now.getMonth(), 1);
-              end = new Date(now);
+              end = new Date(now.getFullYear(), now.getMonth() + 1, 0); 
               break;
       }
-      setStartDate(start.toISOString().split('T')[0]);
-      setEndDate(end.toISOString().split('T')[0]);
+      setStartDate(getLocalDateString(start));
+      setEndDate(getLocalDateString(end));
   }, [filterType]);
 
+  // Pass Date objects constructed from Local Time strings to ensure correct boundary
   const metrics = getMetrics(
       effectiveAttendantId,
-      startDate ? new Date(startDate) : undefined,
-      endDate ? new Date(endDate) : undefined
+      startDate ? new Date(startDate + 'T00:00:00') : undefined,
+      endDate ? new Date(endDate + 'T23:59:59.999') : undefined
   );
 
   // Get Goal Data for current user (if attendant)
@@ -182,9 +193,9 @@ export const Dashboard: React.FC = () => {
 
   // --- Chart Data Logic ---
   const getChartData = () => {
-      const start = startDate ? new Date(startDate) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      const end = endDate ? new Date(endDate) : new Date();
-      end.setHours(23, 59, 59, 999);
+      // Use metrics range directly or default to Month
+      const start = startDate ? new Date(startDate + 'T00:00:00') : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+      const end = endDate ? new Date(endDate + 'T23:59:59.999') : new Date();
 
       let relevantSales = sales.filter(s => {
           const sDate = new Date(s.dataAgendamento);
@@ -222,7 +233,8 @@ export const Dashboard: React.FC = () => {
   const chartData = getChartData();
 
   // Calculate Frustration Rate for Card
-  const totalSalesPeriod = metrics.countAgendado + metrics.countAguardando + metrics.countPagamentoAtrasado + metrics.countPago + metrics.countFrustrado;
+  // NOTE: Only Paid + Frustrated counts for the rate.
+  const totalSalesPeriod = metrics.countPago + metrics.countFrustrado;
   const frustrationRate = totalSalesPeriod > 0 ? (metrics.countFrustrado / totalSalesPeriod) * 100 : 0;
 
   if (isLoading) {
@@ -232,14 +244,16 @@ export const Dashboard: React.FC = () => {
   const statusData = [
     { name: 'Pago', value: metrics.countPago, color: '#22c55e' },
     { name: 'Agendado', value: metrics.countAgendado, color: '#3b82f6' },
+    { name: 'Atrasado', value: metrics.countAtrasado, color: '#c2410c' }, // Orange for Late
     { name: 'Aguardando', value: metrics.countAguardando, color: '#eab308' },
-    { name: 'Pag. atrasado', value: metrics.countPagamentoAtrasado, color: '#f97316' },
     { name: 'Frustrado', value: metrics.countFrustrado, color: '#ef4444' },
   ];
 
   // Logic for ranking
   const ranking = atendentes.map(at => {
-      const mySales = sales.filter(s => s.atendenteId === at.id);
+      // EXCLUDE CANCELLED SALES FROM RANKING
+      const mySales = sales.filter(s => s.atendenteId === at.id && s.status !== 'CANCELADA');
+      
       const pagos = mySales.filter(s => s.status === 'PAGO');
       const countPagos = pagos.length;
       const countFrustrados = mySales.filter(s => s.status === 'FRUSTRADO').length;
@@ -251,7 +265,7 @@ export const Dashboard: React.FC = () => {
   }).sort((a, b) => b.totalValue - a.totalValue);
 
   // States Chart Data
-  const salesByState = sales.filter(s => effectiveAttendantId === 'all' || s.atendenteId === effectiveAttendantId).reduce((acc: any, curr) => {
+  const salesByState = sales.filter(s => (effectiveAttendantId === 'all' || s.atendenteId === effectiveAttendantId) && s.status !== 'CANCELADA').reduce((acc: any, curr) => {
       if (curr.status === 'PAGO') {
         acc[curr.clienteEstado] = (acc[curr.clienteEstado] || 0) + 1;
       }
@@ -286,7 +300,16 @@ export const Dashboard: React.FC = () => {
       )}
 
       {/* STATUS CARDS - Visible to ALL */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+           <StatusCard 
+                title="Total Pago" 
+                count={metrics.countPago} 
+                value={metrics.valorPago} 
+                icon={CheckCircle} 
+                colorClass="text-green-600"
+                bgClass="bg-green-50/50"
+                borderClass="border-green-100"
+           />
            <StatusCard 
                 title="Agendado" 
                 count={metrics.countAgendado} 
@@ -297,7 +320,7 @@ export const Dashboard: React.FC = () => {
                 borderClass="border-blue-100"
            />
            <StatusCard 
-                title="Aguardando Pag." 
+                title="Aguardando" 
                 count={metrics.countAguardando} 
                 value={metrics.valorAguardando} 
                 icon={Clock} 
@@ -305,14 +328,16 @@ export const Dashboard: React.FC = () => {
                 bgClass="bg-yellow-50/50"
                 borderClass="border-yellow-100"
            />
+           {/* NEW CARD: Pagamento Atrasado */}
            <StatusCard 
-                title="Total Pago" 
-                count={metrics.countPago} 
-                value={metrics.valorPago} 
-                icon={CheckCircle} 
-                colorClass="text-green-600"
-                bgClass="bg-green-50/50"
-                borderClass="border-green-100"
+                title="Atrasados" 
+                count={metrics.countAtrasado} 
+                value={metrics.valorAtrasado} 
+                icon={AlertCircle} 
+                colorClass="text-orange-600"
+                bgClass="bg-orange-50/50"
+                borderClass="border-orange-100"
+                subLabel="Cobrar Agora!"
            />
            <StatusCard 
                 title="Frustrado" 
@@ -477,8 +502,8 @@ export const Dashboard: React.FC = () => {
                    <span className="text-sm text-slate-600 font-medium">Pagos</span>
                </div>
                <div className="flex items-center gap-2">
-                   <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
-                   <span className="text-sm text-slate-600 font-medium">Agendados</span>
+                   <div className="w-3 h-3 bg-orange-600 rounded-full"></div>
+                   <span className="text-sm text-slate-600 font-medium">Atrasados</span>
                </div>
                <div className="flex items-center gap-2">
                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>

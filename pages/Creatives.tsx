@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useData } from '../contexts/DataContext';
-import { Megaphone, Plus, Save, X, Trash2, Edit2, TrendingUp, Calendar } from 'lucide-react';
-import { Criativo } from '../types';
+import { Megaphone, Plus, Save, X, Trash2, Edit2, TrendingUp, Calendar, DollarSign } from 'lucide-react';
+import { Criativo, CreativeExpense } from '../types';
 
 export const Creatives: React.FC = () => {
   const { criativos, sales, creativeExpenses, addCriativo, updateCriativo, deleteCriativo, addCreativeExpense, deleteCreativeExpense } = useData();

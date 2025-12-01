@@ -1,15 +1,15 @@
 import React, { useState, useMemo } from 'react';
 import { useData } from '../contexts/DataContext';
 import { useAuth } from '../App';
-import {
-  Filter, AlertTriangle, Edit2, X, Search,
-  ChevronDown, ChevronUp, Megaphone, Tag, History, Clock, Check, Calendar, Ban, Save
+import { 
+  Filter, Plus, AlertTriangle, Edit2, X, Save, Search, 
+  ChevronDown, ChevronUp, Megaphone, Tag, History, Clock, Webhook, Check, Calendar, Ban
 } from 'lucide-react';
 import { STATUS_COLORS, STATUS_LABELS } from '../constants';
 import { Venda, SaleStatus, DiscountType } from '../types';
 
 export const Sales: React.FC = () => {
-  const { sales, updateSale, atendentes, kits, criativos } = useData();
+  const { sales, updateSale, processBraipWebhook, atendentes, kits, criativos } = useData();
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
@@ -37,8 +37,12 @@ export const Sales: React.FC = () => {
 
       // Filter Logic
       if (filterStatus === 'PENDING_ACTION') {
-          // Actions Needed: Scheduled for Today or In The Past, waiting or late payment
-          if (s.status === 'AGUARDANDO_PAGAMENTO' || s.status === 'PAGAMENTO_ATRASADO') return true;
+          // Actions Needed: 
+          // 1. PAYMENT LATE (High priority)
+          if (s.status === 'PAGAMENTO_ATRASADO') return true;
+          // 2. Waiting Payment
+          if (s.status === 'AGUARDANDO_PAGAMENTO') return true;
+          // 3. Scheduled for Today or Past
           if (s.status === 'AGENDADO') {
               const scheduleDate = new Date(s.dataAgendamento).setHours(0,0,0,0);
               const today = new Date().setHours(0,0,0,0);
@@ -94,12 +98,12 @@ export const Sales: React.FC = () => {
   const filterOptions = [
       { id: 'ALL', label: 'Todos', activeClass: 'bg-slate-800 text-white border-slate-800 ring-2 ring-slate-200' },
       { id: 'PENDING_ACTION', label: 'AÇÃO NECESSÁRIA', activeClass: 'bg-orange-500 text-white border-orange-500 ring-2 ring-orange-200 animate-pulse' },
+      { id: 'PAGAMENTO_ATRASADO', label: 'Atrasado', activeClass: 'bg-orange-600 text-white border-orange-600 ring-2 ring-orange-200' },
       { id: 'AGENDADO', label: 'Agendado', activeClass: 'bg-blue-600 text-white border-blue-600 ring-2 ring-blue-200' },
       { id: 'AGUARDANDO_PAGAMENTO', label: 'Aguardando Pag.', activeClass: 'bg-yellow-500 text-white border-yellow-500 ring-2 ring-yellow-200' },
-      { id: 'PAGAMENTO_ATRASADO', label: 'Pag. Atrasado', activeClass: 'bg-orange-600 text-white border-orange-600 ring-2 ring-orange-200' },
       { id: 'PAGO', label: 'Pago', activeClass: 'bg-green-600 text-white border-green-600 ring-2 ring-green-200' },
       { id: 'FRUSTRADO', label: 'Frustrado', activeClass: 'bg-red-600 text-white border-red-600 ring-2 ring-red-200' },
-      { id: 'CANCELADA', label: 'Cancelada', activeClass: 'bg-slate-600 text-white border-slate-600 ring-2 ring-slate-200' },
+      { id: 'CANCELADA', label: 'Cancelada', activeClass: 'bg-slate-500 text-white border-slate-500 ring-2 ring-slate-200' },
   ];
 
   return (
@@ -188,7 +192,7 @@ export const Sales: React.FC = () => {
                         // Row styling for unidentified sales
                         const rowBackground = sale.semIdentificacao 
                             ? (isExpanded ? 'bg-orange-100' : 'bg-orange-50 hover:bg-orange-100 border-l-4 border-l-orange-400')
-                            : (isExpanded ? 'bg-blue-50/50' : 'hover:bg-slate-50 group');
+                            : (sale.status === 'CANCELADA' ? 'opacity-50 bg-slate-50' : (isExpanded ? 'bg-blue-50/50' : 'hover:bg-slate-50 group'));
 
                         return (
                         <React.Fragment key={sale.id}>
@@ -239,38 +243,27 @@ export const Sales: React.FC = () => {
                                 <td className="px-6 py-4 text-right">
                                     <div className="flex justify-end gap-1">
                                         {/* Quick Actions for Workflow */}
-                                        <button
+                                        <button 
                                             onClick={() => handleQuickStatusChange(sale.id, 'PAGO')}
                                             title="Marcar como Pago"
-                                            className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                                            disabled={sale.status === 'CANCELADA'}
+                                            className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                         >
                                             <Check size={18} />
                                         </button>
-                                        <button
-                                            onClick={() => handleQuickStatusChange(sale.id, 'PAGAMENTO_ATRASADO')}
-                                            title="Pagamento em Atraso"
-                                            className="p-1.5 text-slate-400 hover:text-orange-600 hover:bg-orange-50 rounded transition-colors"
-                                        >
-                                            <Clock size={18} />
-                                        </button>
-                                        <button
+                                        <button 
                                             onClick={() => handleQuickStatusChange(sale.id, 'FRUSTRADO')}
                                             title="Marcar como Frustrado"
-                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                                            disabled={sale.status === 'CANCELADA'}
+                                            className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                         >
                                             <X size={18} />
                                         </button>
-                                        <button
-                                            onClick={() => handleQuickStatusChange(sale.id, 'CANCELADA')}
-                                            title="Cancelar venda"
-                                            className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors"
-                                        >
-                                            <Ban size={18} />
-                                        </button>
-                                         <button
+                                         <button 
                                             onClick={() => handleQuickReschedule(sale)}
                                             title="Reagendar para Amanhã"
-                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                                            disabled={sale.status === 'CANCELADA'}
+                                            className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
                                         >
                                             <Calendar size={18} />
                                         </button>
@@ -405,7 +398,7 @@ export const Sales: React.FC = () => {
                                   <option value="PAGAMENTO_ATRASADO">Pagamento Atrasado</option>
                                   <option value="PAGO">Pago</option>
                                   <option value="FRUSTRADO">Frustrado</option>
-                                  <option value="CANCELADA">Cancelada</option>
+                                  <option value="CANCELADA">Cancelada (Remover do Painel)</option>
                               </select>
                           </div>
                           <div>

@@ -36,8 +36,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   const location = useLocation();
   const { user, logout } = useAuth();
   
-  const isAdmin = user?.role === 'admin' || user?.role === 'super_admin';
+  // Role Definitions
   const isSuperAdmin = user?.role === 'super_admin';
+  const isClientAdmin = user?.role === 'admin';
+  const isManagement = isSuperAdmin || isClientAdmin;
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden">
@@ -59,10 +61,10 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
           {/* Logo */}
           <div className="h-16 flex items-center px-6 border-b border-slate-100">
             <div className="flex items-center gap-2 text-blue-700 font-bold text-xl tracking-tight">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white">
-                R
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center text-white font-mono">
+                M
               </div>
-              SISTEMA RAI
+              Meu Painel
             </div>
           </div>
 
@@ -72,56 +74,71 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
               Principal
             </div>
             
+            {/* Dashboard Link - Dynamic Destination based on Role */}
             <SidebarItem 
-              to="/" 
+              to={isSuperAdmin ? "/clientes" : "/"} 
               icon={LayoutDashboard} 
-              label="Dashboard" 
-              active={location.pathname === '/'} 
+              label={isSuperAdmin ? "Dashboard SaaS" : "Dashboard"}
+              active={location.pathname === '/' || (isSuperAdmin && location.pathname === '/clientes')} 
             />
-            <SidebarItem 
-              to="/vendas" 
-              icon={ShoppingCart} 
-              label="Vendas" 
-              active={location.pathname === '/vendas'} 
-            />
+            
+            {/* Sales - HIDDEN for Super Admin */}
+            {!isSuperAdmin && (
+                <SidebarItem 
+                to="/vendas" 
+                icon={ShoppingCart} 
+                label="Vendas" 
+                active={location.pathname === '/vendas'} 
+                />
+            )}
 
-            {isAdmin && (
+            {isManagement && (
               <>
                 <div className="mt-8 mb-4 px-2 text-xs font-semibold text-slate-400 uppercase tracking-wider">
                   Gestão
                 </div>
+                
+                {/* Super Admin ONLY Module */}
                 {isSuperAdmin && (
                     <SidebarItem 
                       to="/clientes" 
                       icon={Building2} 
-                      label="Clientes (SaaS)" 
+                      label="Clientes (Empresas)" 
                       active={location.pathname === '/clientes'} 
                     />
                 )}
-                <SidebarItem 
-                  to="/financeiro" 
-                  icon={DollarSign} 
-                  label="Financeiro" 
-                  active={location.pathname === '/financeiro'} 
-                />
-                <SidebarItem 
-                  to="/equipe" 
-                  icon={Users} 
-                  label="Equipe" 
-                  active={location.pathname === '/equipe'} 
-                />
-                <SidebarItem 
-                  to="/kits" 
-                  icon={Package} 
-                  label="Kits & Produtos" 
-                  active={location.pathname === '/kits'} 
-                />
-                <SidebarItem 
-                  to="/criativos" 
-                  icon={Megaphone} 
-                  label="Criativos" 
-                  active={location.pathname === '/criativos'} 
-                />
+
+                {/* Client Admin ONLY Modules (Operational) */}
+                {isClientAdmin && (
+                    <>
+                        <SidebarItem 
+                        to="/financeiro" 
+                        icon={DollarSign} 
+                        label="Financeiro" 
+                        active={location.pathname === '/financeiro'} 
+                        />
+                        <SidebarItem 
+                        to="/equipe" 
+                        icon={Users} 
+                        label="Equipe" 
+                        active={location.pathname === '/equipe'} 
+                        />
+                        <SidebarItem 
+                        to="/kits" 
+                        icon={Package} 
+                        label="Kits & Produtos" 
+                        active={location.pathname === '/kits'} 
+                        />
+                        <SidebarItem 
+                        to="/criativos" 
+                        icon={Megaphone} 
+                        label="Criativos" 
+                        active={location.pathname === '/criativos'} 
+                        />
+                    </>
+                )}
+                
+                {/* Shared Management Modules */}
                 <SidebarItem 
                   to="/logs" 
                   icon={ClipboardList} 

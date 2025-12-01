@@ -4,7 +4,7 @@ export const STATUS_COLORS = {
   PAGAMENTO_ATRASADO: 'bg-orange-100 text-orange-800 border-orange-200',
   PAGO: 'bg-green-100 text-green-800 border-green-200',
   FRUSTRADO: 'bg-red-100 text-red-800 border-red-200',
-  CANCELADA: 'bg-slate-100 text-slate-500 border-slate-200',
+  CANCELADA: 'bg-slate-100 text-slate-500 border-slate-200 opacity-75',
 };
 
 export const STATUS_LABELS = {
@@ -17,4 +17,4 @@ export const STATUS_LABELS = {
 };
 
 // Mock Investment for ROI calculation since it wasn't in DB schema but needed for formula
-export const MOCK_MARKETING_INVESTMENT = 15000; 
+export const MOCK_MARKETING_INVESTMENT = 15000;
