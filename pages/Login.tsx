@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../App';
+import { useData } from '../contexts/DataContext'; // Acesso aos dados globais de usuários
 import { AlertCircle, Loader2, Shield, Building2 } from 'lucide-react';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
 
 export const Login: React.FC = () => {
   const { login, isAuthenticated } = useAuth();
+  const { users } = useData(); // Buscando usuários do "Banco de Dados"
   const navigate = useNavigate();
   
   const [email, setEmail] = useState('admin@rai.com');
@@ -25,31 +25,33 @@ export const Login: React.FC = () => {
     setIsLoading(true);
     setError(null);
 
-    try {
-      const response = await fetch(`${API_URL}/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
+    // Simulação de chamada de API (Delay de rede)
+    setTimeout(() => {
+        // Validação contra a base de dados (users do Context)
+        const userFound = users.find(u => u.email === email);
+        const validPassword = '123456'; // Em produção, usar hash/bcrypt no backend
 
-      if (!response.ok) {
-        const body = await response.json().catch(() => ({}));
-        throw new Error(body.message || 'Falha ao autenticar.');
-      }
+        if (!userFound) {
+            setError('Usuário não encontrado. Verifique o e-mail digitado.');
+            setIsLoading(false);
+            return;
+        }
 
-      const data = await response.json();
-      login({
-        id: data.user.id,
-        name: data.user.name,
-        email: data.user.email,
-        role: data.user.role,
-        clientId: data.user.cliente_id
-      }, data.token);
-    } catch (err: any) {
-      setError(err.message || 'Erro inesperado ao autenticar.');
-    } finally {
-      setIsLoading(false);
-    }
+        if (password !== validPassword) {
+            setError('Senha incorreta. Por favor, tente novamente.');
+            setIsLoading(false);
+            return;
+        }
+        
+        // Success
+        login({
+            id: userFound.id,
+            name: userFound.name,
+            email: userFound.email,
+            role: userFound.role
+        });
+        
+    }, 1000);
   };
 
   const fillCredentials = (type: 'super' | 'admin') => {

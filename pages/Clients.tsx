@@ -33,9 +33,6 @@ export const Clients: React.FC = () => {
   const [document, setDocument] = useState('');
   const [plan, setPlan] = useState<'trial' | 'pro' | 'enterprise'>('trial');
   const [active, setActive] = useState(true);
-  const [adminName, setAdminName] = useState('');
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
 
   // SaaS Metrics Calculation
   const activeClients = clients.filter(c => c.active).length;
@@ -53,25 +50,19 @@ export const Clients: React.FC = () => {
           setDocument(client.documento);
           setPlan(client.plan);
           setActive(client.active);
-          setAdminName('');
-          setAdminEmail('');
-          setAdminPassword('');
       } else {
           setEditingId(null);
           setName('');
           setDocument('');
           setPlan('trial');
           setActive(true);
-          setAdminName('');
-          setAdminEmail('');
-          setAdminPassword('');
       }
       setIsModalOpen(true);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
       e.preventDefault();
-
+      
       if (editingId) {
           updateClient(editingId, { name, documento: document, plan, active });
       } else {
@@ -82,11 +73,7 @@ export const Clients: React.FC = () => {
               plan,
               active,
               createdAt: new Date().toISOString()
-          } as any, {
-            name: adminName || `${name} Admin`,
-            email: adminEmail,
-            password: adminPassword
-          });
+          } as any);
       }
       setIsModalOpen(false);
   };
@@ -214,22 +201,6 @@ export const Clients: React.FC = () => {
                                <option value="enterprise">Enterprise (R$ 997)</option>
                            </select>
                        </div>
-                       {!editingId && (
-                         <>
-                           <div>
-                               <label className="block text-sm font-bold text-slate-700 mb-1">Nome do Admin Inicial</label>
-                               <input type="text" required value={adminName} onChange={e => setAdminName(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-                           </div>
-                           <div>
-                               <label className="block text-sm font-bold text-slate-700 mb-1">Email do Admin Inicial</label>
-                               <input type="email" required value={adminEmail} onChange={e => setAdminEmail(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-                           </div>
-                           <div>
-                               <label className="block text-sm font-bold text-slate-700 mb-1">Senha do Admin Inicial</label>
-                               <input type="password" required value={adminPassword} onChange={e => setAdminPassword(e.target.value)} className="w-full px-3 py-2 border rounded-lg" />
-                           </div>
-                         </>
-                       )}
                        <div className="flex items-center gap-2">
                            <input type="checkbox" checked={active} onChange={e => setActive(e.target.checked)} id="active" />
                            <label htmlFor="active" className="text-sm font-medium text-slate-700">Acesso Ativo</label>

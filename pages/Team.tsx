@@ -133,9 +133,9 @@ export const Team: React.FC = () => {
           }
 
           addAtendente(
-              attendantData,
+              attendantData, 
               { email, password },
-              user?.clientId || ''
+              user?.clientId || 'c1' // Fallback for Super Admin testing
           );
       }
       setIsModalOpen(false);
